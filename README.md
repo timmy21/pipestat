@@ -8,11 +8,12 @@ Example
 -------------------------------------------------------------
 
 Here is a quick example to get a feeling of **pipestat**,
-extract fields for event and stat count and elaplse.
+extract fields for event and stat count and elapse:
 
 .. code:: python
 
     >>> from pipestat import pipestat
+
     >>> pipeline = [
     ...    {
     ...        "$match": {
@@ -55,7 +56,9 @@ extract fields for event and stat count and elaplse.
     ...        }
     ...    },
     ... ]
+
     >>> dataset = [{"_event": "[2014-01-16 16:13:49,171] DEBUG Collect app:app37 timeline end... refresh, elapse:0.105722904205"}, ...]
+
     >>> pipestat(dataset, pipeline)
     [
       {
