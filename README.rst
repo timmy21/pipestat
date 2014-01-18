@@ -2,7 +2,7 @@ Stat dataset via pipeline
 =============================================================
 
 **pipestat** is a library for stat dataset via pipeline,
-which use mongo aggregation framework.
+which use mongo aggregation framework syntax.
 
 Example
 -------------------------------------------------------------
