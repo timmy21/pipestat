@@ -175,7 +175,7 @@ $timestamp operator convert formatted string time to seconds float value, use li
     >>> pipeline = [
     ...    {
     ...        "$project": {
-    ...            "ts": {"$timestamp": ["$ts_str", "YYYY-mm-DD HH:MM:SS"]},
+    ...            "ts": {"$timestamp": ["$ts_str", "%Y-%m-%d %H:%M:%S"]},
     ...        },
     ...    },
     ... ]

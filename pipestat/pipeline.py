@@ -6,7 +6,7 @@ import time
 import json
 import copy
 import collections
-from .bsort import insort
+from pipestat.bsort import insort
 
 
 class PipeCmdError(Exception):
@@ -41,8 +41,18 @@ class PipeCmd(object):
         else:
             return self._data
 
+    def _is_item_key(self, k):
+        if isinstance(k, basestring) and len(k) > 0 and k[0] == "$":
+            return True
+        return False
+
+    def _is_operator(self, k):
+        if isinstance(k, basestring) and len(k) > 0 and k[0] == "$":
+            return True
+        return False
+
     def _get_val(self, item, k, default=None):
-        if isinstance(k, basestring) and k[0] == "$":
+        if self._is_item_key(k):
             parts = k[1:].split(".")
             part_item = item
             for part in parts:
@@ -55,87 +65,94 @@ class PipeCmd(object):
             return k
 
     def _set_val(self, item, k, v):
-        parts = k[1:].split(".")
+        parts = k.split(".")
         part_item = item
         for part in parts[:-1]:
             if part not in part_item:
                 part_item[part] = {}
             part_item = part_item[part]
-        part_item[part[-1]] = v
+        part_item[parts[-1]] = v
 
 
 class MatchPipeCmd(PipeCmd):
 
     def feed(self, item):
         matched = True
-        for k, v in self.val.iteritems():
-            if not self._is_match(item, k, v):
+        for k, ops in self.val.iteritems():
+            if not self._is_match(item, k, ops):
                 matched = False
                 break
 
         if matched:
             super(MatchPipeCmd, self).feed(item)
 
-    def _is_match(self, item, k, mat_vals):
-        for mat_k, mat_v in mat_vals.iteritems():
-            if mat_k[0] == "$":
-                if not getattr(self, "do_%s" % mat_k[1:])(item, "$"+k, mat_v):
-                    return False
+    def _is_match(self, item, k, ops):
+        for op_k, op_v in ops.iteritems():
+            if self._is_operator(op_k):
+                if hasattr(self, "do_%s" % op_k[1:]):
+                    if not getattr(self, "do_%s" % op_k[1:])(item, "$"+k, op_v):
+                        return False
+                else:
+                    raise PipeCmdDefineError("$match command do not support %s operator." % op_k)
             else:
-                if not getattr(self, "do_eq")(item, "$"+k, mat_v):
+                if not getattr(self, "do_eq")(item, "$"+k, op_v):
                     return False
         return True
 
-    def do_call(self, item, k, mat_v):
-        return mat_v(self._get_val(item, k), item)
+    def do_call(self, item, k, op_v):
+        if callable(op_v):
+            return op_v(self._get_val(item, k), item)
+        else:
+            raise PipeCmdDefineError("$match command's $call operator value:%r is not be callable." % op_v)
 
-    def do_regexp(self, item, k, mat_v):
-        m = re.search(mat_v, self._get_val(item, k, default=""))
+    def do_regexp(self, item, k, op_v):
+        v = self._get_val(item, k, default="")
+        m = re.search(op_v, v)
         if m:
             return True
         return False
 
-    def do_and(self, item, k, mat_v):
-        for item in mat_v:
-            if not self._is_match(item, k, item):
+    def do_and(self, item, k, op_v):
+        for sub_ops in op_v:
+            if not self._is_match(item, k, sub_ops):
                 return False
         return True
 
-    def do_or(self, item, k, mat_v):
-        for item in mat_v:
-            if self._is_match(item, k, item):
+    def do_or(self, item, k, op_v):
+        for sub_ops in op_v:
+            if self._is_match(item, k, sub_ops):
                 return True
         return False
 
-    def do_gt(self, item, k, mat_v):
+    def do_gt(self, item, k, op_v):
         v = float(self._get_val(item, k))
-        mat_v = float(self._get_val(item, mat_v))
-        return v > mat_v
+        op_v = float(self._get_val(item, op_v))
+        return v > op_v
 
-    def do_gte(self, item, k, mat_v):
+    def do_gte(self, item, k, op_v):
         v = float(self._get_val(item, k))
-        mat_v = float(self._get_val(item, mat_v))
-        return v >= mat_v
+        op_v = float(self._get_val(item, op_v))
+        return v >= op_v
 
-    def do_lt(self, item, k, mat_v):
+    def do_lt(self, item, k, op_v):
         v = float(self._get_val(item, k))
-        mat_v = float(self._get_val(item, mat_v))
-        return v < mat_v
+        op_v = float(self._get_val(item, op_v))
+        return v < op_v
 
-    def do_lte(self, item, k, mat_v):
+    def do_lte(self, item, k, op_v):
         v = float(self._get_val(item, k))
-        mat_v = float(self._get_val(item, mat_v))
-        return v <= mat_v
+        op_v = float(self._get_val(item, op_v))
+        return v <= op_v
 
-    def do_ne(self, item, k, mat_v):
+    def do_ne(self, item, k, op_v):
         v = self._get_val(item, k)
-        mat_v = self._get_val(item, mat_v)
-        return v != mat_v
+        op_v = self._get_val(item, op_v)
+        return v != op_v
 
-    def do_eq(self, item, k, mat_v):
+    def do_eq(self, item, k, op_v):
         v = self._get_val(item, k)
-        mat_v = self._get_val(item, mat_v)
-        return v == mat_v
+        op_v = self._get_val(item, op_v)
+        return v == op_v
 
 
 class ProjectPipeCmd(PipeCmd):
@@ -150,53 +167,63 @@ class ProjectPipeCmd(PipeCmd):
             if isinstance(v, basestring):
                 new_vals[k] = self._get_val(item, v)
             else:
-                prj_k = v.keys()[0]
-                if prj_k[0] == "$":
-                    new_vals[k] = getattr(self, "do_%s" % prj_k[1:])(item, k, v[prj_k])
+                op_k = v.keys()[0]
+                if op_k[0] == "$":
+                    new_vals[k] = getattr(self, "do_%s" % op_k[1:])(item, k, v[op_k])
                 else:
                     new_vals[k] = self._new_vals(item, v)
         return new_vals
 
-    def do_extract(self, item, k, prj_v):
-        field = prj_v[0]
-        expr = prj_v[1]
-        m = re.search(expr, self._get_val(item, field, default=""))
-        if m:
-            if k in m.groupdict():
-                return m.groupdict()[k]
-            elif len(m.groups()) > 0:
-                return m.group(1)
-            else:
-                return m.group()
+    def do_extract(self, item, k, op_v):
+        op_args_k = op_v[0]
+        op_args_expr = op_v[1]
+        if self._is_item_key(op_args_k):
+            v = self._get_val(item, op_args_k, default="")
+            m = re.search(op_args_expr, v)
+            if m:
+                if k in m.groupdict():
+                    return m.groupdict()[k]
+                elif len(m.groups()) > 0:
+                    return m.group(1)
+                else:
+                    return m.group()
         else:
-            return None
+            raise PipeCmdDefineError("$project command's $extract operator first argument should be item's key, but %r is not start with '$'" % op_args_k)
 
-    def do_timestamp(self, item, k, prj_v):
-        field = prj_v[0]
-        fmt = prj_v[1]
-        return time.mktime(time.strptime(self._get_val(item, field), fmt))
+    def do_timestamp(self, item, k, op_v):
+        op_args_k = op_v[0]
+        op_args_fmt = op_v[1]
+        if self._is_item_key(op_args_k):
+            v = self._get_val(item, op_args_k, default="")
+            return time.mktime(time.strptime(v, op_args_fmt))
+        else:
+            raise PipeCmdDefineError("$project command's $timestamp operator first argument should be item's key, but '%s' not start with '$'" % op_args_k)
 
-    def do_call(self, item, k, prj_v):
-        return prj_v(item)
+    def do_call(self, item, k, op_v):
+        return op_v(item)
+        if callable(op_v):
+            return op_v(item)
+        else:
+            raise PipeCmdDefineError("$project command's $call operator value:%r is not be callable." % op_v)
 
-    def do_add(self, item, k, prj_v):
-        v1 = float(self._get_val(item, prj_v[0]))
-        v2 = float(self._get_val(item, prj_v[1]))
+    def do_add(self, item, k, op_v):
+        v1 = float(self._get_val(item, op_v[0]))
+        v2 = float(self._get_val(item, op_v[1]))
         return v1+v2
 
-    def do_substract(self, item, k, prj_v):
-        v1 = float(self._get_val(item, prj_v[0]))
-        v2 = float(self._get_val(item, prj_v[1]))
+    def do_substract(self, item, k, op_v):
+        v1 = float(self._get_val(item, op_v[0]))
+        v2 = float(self._get_val(item, op_v[1]))
         return v1-v2
 
-    def do_multiply(self, item, k, prj_v):
-        v1 = float(self._get_val(item, prj_v[0]))
-        v2 = float(self._get_val(item, prj_v[1]))
+    def do_multiply(self, item, k, op_v):
+        v1 = float(self._get_val(item, op_v[0]))
+        v2 = float(self._get_val(item, op_v[1]))
         return v1*v2
 
-    def do_divide(self, item, k, prj_v):
-        v1 = float(self._get_val(item, prj_v[0]))
-        v2 = float(self._get_val(item, prj_v[1]))
+    def do_divide(self, item, k, op_v):
+        v1 = float(self._get_val(item, op_v[0]))
+        v2 = float(self._get_val(item, op_v[1]))
         return v1/v2
 
 
@@ -215,9 +242,14 @@ class GroupPipeCmd(PipeCmd):
         for k, v in self.val.iteritems():
             if k == "_id":
                 continue
-            gp_k = v.keys()[0]
-            gp_v = v[gp_k]
-            new_vals[k] = getattr(self, "do_%s" % gp_k[1:])(item, old_vals.get(k), gp_v)
+            op_k = v.keys()[0]
+            if self._is_operator(op_k):
+                if hasattr(self, "do_%s" % op_k[1:]):
+                    new_vals[k] = getattr(self, "do_%s" % op_k[1:])(item, old_vals.get(k), v[op_k])
+                else:
+                    raise PipeCmdDefineError("$group command do not support %s operator." % op_k)
+            else:
+                raise PipeCmdDefineError("$group command has invalid operator:%r" % op_k)
 
         self._gdata[gid] = new_vals
 
@@ -259,60 +291,59 @@ class GroupPipeCmd(PipeCmd):
         else:
             return id_v
 
-    def do_sum(self, item, old_v, gp_v):
-        new_v = float(self._get_val(item, gp_v))
+    def do_sum(self, item, old_v, op_v):
+        op_v = float(self._get_val(item, op_v))
         if old_v is None:
-            return new_v
+            return op_v
         else:
-            return old_v + new_v
+            return old_v + op_v
 
-    def do_min(self, item, old_v, gp_v):
-        new_v = float(self._get_val(item, gp_v))
+    def do_min(self, item, old_v, op_v):
+        op_v = float(self._get_val(item, op_v))
         if old_v is None:
-            return new_v
+            return op_v
         else:
-            return min(old_v, new_v)
+            return min(old_v, op_v)
 
-    def do_max(self, item, old_v, gp_v):
-        new_v = float(self._get_val(item, gp_v))
+    def do_max(self, item, old_v, op_v):
+        op_v = float(self._get_val(item, op_v))
         if old_v is None:
-            return new_v
+            return op_v
         else:
-            return max(old_v, new_v)
+            return max(old_v, op_v)
 
-    def do_first(self, item, old_v, gp_v):
+    def do_first(self, item, old_v, op_v):
         if old_v is not None:
             return old_v
         else:
-            new_v = self._get_val(item, gp_v)
-            return new_v
+            return self._get_val(item, op_v)
 
-    def do_last(self, item, old_v, gp_v):
-        new_v = self._get_val(item, gp_v)
-        if new_v is not None:
-            return new_v
+    def do_last(self, item, old_v, op_v):
+        op_v = self._get_val(item, op_v)
+        if op_v is not None:
+            return op_v
         else:
             return old_v
 
-    def do_addToSet(self, item, old_v, gp_v):
-        new_v = self._get_val(item, gp_v)
+    def do_addToSet(self, item, old_v, op_v):
+        op_v = self._get_val(item, op_v)
         if old_v is None:
-            if new_v is not None:
-                return [new_v]
+            if op_v is not None:
+                return [op_v]
         else:
-            if new_v is not None:
-                return list(set(old_v + [new_v]))
+            if op_v is not None:
+                return list(set(old_v + [op_v]))
             else:
                 return old_v
 
-    def do_push(self, item, old_v, gp_v):
-        new_v = self._get_val(item, gp_v)
+    def do_push(self, item, old_v, op_v):
+        op_v = self._get_val(item, op_v)
         if old_v is None:
-            if new_v is not None:
-                return [new_v]
+            if op_v is not None:
+                return [op_v]
         else:
-            if new_v is not None:
-                return old_v + [new_v]
+            if op_v is not None:
+                return old_v + [op_v]
             else:
                 return old_v
 
@@ -381,10 +412,12 @@ class LimitCmd(PipeCmd):
 
 class UnwindCmd(PipeCmd):
 
-    def feed(self, item):
-        if self.val[0] != "$":
-            raise PipeCmdDefineError("Invalid unwind field:%s" % self.val)
+    def __init__(self, val):
+        super(UnwindCmd, self).__init__(val)
+        if not self._is_item_key(self.val):
+            raise PipeCmdDefineError("$unwind command paramter should be item key, but %r do not start with '$'" % self.val)
 
+    def feed(self, item):
         vals = self._get_val(item, self.val)
         if isinstance(vals, collections.Iterable):
             for v in vals:
@@ -392,7 +425,7 @@ class UnwindCmd(PipeCmd):
                 self._set_val(item, self.val[1:], v)
                 super(UnwindCmd, self).feed(new_item)
         else:
-            raise PipeCmdExecuteError("unwind field value:%s, is not Iterable" % vals)
+            raise PipeCmdExecuteError("$unwind command paramter field's value:%s is not Iterable" % vals)
 
 
 class Pipeline(object):
