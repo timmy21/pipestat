@@ -302,7 +302,7 @@ Advance Example
 for same reason, maybe you want use low-level **Pipeline** class. with it you can do multiply pipestat for same dataset.
 see below example.
 
-..code:: python
+.. code:: python
 
     >>> from pipestat import Pipeline, LimitExceedError
 
@@ -386,6 +386,7 @@ see below example.
     ... ])
 
     >>> pipes = [pipeline1, pipeline2]
+
     >>> for item in dataset:
     ...     for p in pipes:
     ...         try:
