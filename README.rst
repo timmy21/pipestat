@@ -95,7 +95,7 @@ $match
 
 $match pipes the documents that match its conditions to the next operator in the pipeline.
 See this `mongo aggregation $match
-http://docs.mongodb.org/manual/reference/operator/aggregation/match/`_ for more.
+<http://docs.mongodb.org/manual/reference/operator/aggregation/match/>`_ for more.
 
 $match command support basic operators: $and, $or, $gt, $gte, $lt, $lte, $ne and $eq,
 in addition to this, pipestat $match command support more, like **$regexp**, **$call**.
@@ -136,7 +136,7 @@ Reshapes a document stream by renaming, adding, or removing fields. Also use $pr
 - Create and populate fields that hold sub-documents.
 
 See this `mongo aggregation $project
-http://docs.mongodb.org/manual/reference/operator/aggregation/project/`_ for more.
+<http://docs.mongodb.org/manual/reference/operator/aggregation/project/>`_ for more.
 
 $project command support basic operators: $add, $substract, $multiply, and $divide,
 in addition to this, pipestat $project command support more, like **$extract**, **$timestamp**, **$call**.
@@ -190,7 +190,7 @@ Groups documents together for the purpose of calculating aggregate values based 
 In practice, $group often supports tasks such as average page views for each page in a website on a daily basis.
 
 See this `mongo aggregation $group
-http://docs.mongodb.org/manual/reference/operator/aggregation/group/`_ for more.
+<http://docs.mongodb.org/manual/reference/operator/aggregation/group/>`_ for more.
 
 $group command support basic operators: $sum, $min, $max, $first, $last, $addToSet, $push.
 all this operators are identical to mongo corresponding operator, see a example as below:
@@ -217,7 +217,7 @@ $sort
 the $sort pipeline command sorts all input documents and returns them to the pipeline in sorted order
 
 See this `mongo aggregation $sort
-http://docs.mongodb.org/manual/reference/operator/aggregation/sort/`_ for more.
+<http://docs.mongodb.org/manual/reference/operator/aggregation/sort/>`_ for more.
 
 $sort command is identical to mongo aggregation $sort, see a example as below:
 
@@ -237,7 +237,7 @@ $limit
 Restricts the number of documents that pass through the $limit in the pipeline.
 
 See this `mongo aggregation $limit
-http://docs.mongodb.org/manual/reference/operator/aggregation/limit`_ for more.
+<http://docs.mongodb.org/manual/reference/operator/aggregation/limit/>`_ for more.
 
 $limit command is identical to mongo aggregation $limit, see a example as below:
 
@@ -254,7 +254,7 @@ $skip
 Skips over the specified number of documents that pass through the $skip in the pipeline before passing all of the remaining input.
 
 See this `mongo aggregation $skip
-http://docs.mongodb.org/manual/reference/operator/aggregation/skip`_ for more.
+<http://docs.mongodb.org/manual/reference/operator/aggregation/skip/>`_ for more.
 
 $skip command is identical to mongo aggregation $skip, see a example as below:
 
@@ -271,7 +271,7 @@ $unwind
 Peels off the elements of an array individually, and returns a stream of documents. $unwind returns one document for every member of the unwound array within every source document.
 
 See this `mongo aggregation $unwind
-http://docs.mongodb.org/manual/reference/operator/aggregation/unwind`_ for more.
+<http://docs.mongodb.org/manual/reference/operator/aggregation/unwind/>`_ for more.
 
 $unwind command is identical to mongo aggregation $unwind, see a example as below:
 
