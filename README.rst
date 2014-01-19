@@ -232,7 +232,7 @@ See this `mongo aggregation $sort
 <http://docs.mongodb.org/manual/reference/operator/aggregation/sort/>`_ for more.
 
 $sort command is identical to mongo aggregation $sort,
-but you should use tuple list instead of dict because python dict unordered! see a example as below:
+but you should use tuple list instead of dict because python dict is unordered! see a example as below:
 
 .. code:: python
 
@@ -439,5 +439,12 @@ see below example.
         }
     ]
 
-as you see when you use low-level **Pipeline** class, you should handle LimitExceedError by youself.
-LimitExceedError is raise when you use **$limit**, and result is exceed limit count.
+as you see when you use low-level **Pipeline** class, you should handle **LimitExceedError** by youself.
+LimitExceedError is raise when you use $limit command, and required items is exceed limit count.
+
+Next to do
+-------------------------------------------------------------
+- add testcase and bug free.
+- add more examples.
+- make exception more human-readable.
+- implement parallel.
