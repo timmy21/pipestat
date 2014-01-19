@@ -16,7 +16,6 @@ setup(
     license='MIT',
     url='https://github.com/timmy21/pipestat',
     packages=['pipestat'],
-    zip_safe=False,
     classifiers=[
         'Development Status :: 3 - Alpha',
         'Intended Audience :: Developers',

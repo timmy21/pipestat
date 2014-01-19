@@ -323,7 +323,7 @@ class SortCmd(PipeCmd):
         insort(self._data, item, cmp=self.cmp_func)
 
     def cmp_func(self, item1, item2):
-        for k, direction in self.val.iteritems():
+        for k, direction in self.val:
             v1 = self._get_val(item1, "$"+k)
             v2 = self._get_val(item2, "$"+k)
             ret = 0

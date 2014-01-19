@@ -3,6 +3,8 @@ Stat dataset via pipeline
 
 **pipestat** is a library for stat dataset via pipeline,
 which use mongo aggregation framework syntax.
+see this `mongo aggregation pipeline
+<http://docs.mongodb.org/manual/core/aggregation-pipeline/>`_ for how pipeline work.
 
 Example
 -------------------------------------------------------------
@@ -15,76 +17,86 @@ extract fields from event, and then stat count and elapse:
     >>> from pipestat import pipestat
 
     >>> pipeline = [
-    ...    {
-    ...        "$match": {
-    ...            "_event": {"$regexp": "Collect\s*app:.*timeline.*end.*elapse"},
-    ...        },
-    ...    },
-    ...    {
-    ...        "$project": {
-    ...            "app": {"$extract": ["$_event", "app:(\w*)"]},
-    ...            "action": {"$extract": ["$_event", "(cached|refresh|locked)"]},
-    ...            "elapse": {"$extract": ["$_event", "elapse:([\d.]*)"]},
-    ...        },
-    ...    },
-    ...    {
-    ...        "$group": {
-    ...            "_id": {
-    ...                "app": "$app",
-    ...                "action": "$action"
-    ...            },
-    ...            "count": {"$sum": 1},
-    ...            "min_elapse": {"$min": "$elapse"},
-    ...            "max_elapse": {"$max": "$elapse"},
-    ...            "sum_elapse": {"$sum": "$elapse"},
-    ...        }
-    ...    },
-    ...    {
-    ...        "$project": {
-    ...            "app": "$_id.app",
-    ...            "action": "$_id.action",
-    ...            "count": "$count",
-    ...            "min_elapse": "$min_elapse",
-    ...            "max_elapse": "$max_elapse",
-    ...            "avg_elapse": {"$divide": ["$sum_elapse", "$count"]},
-    ...        },
-    ...    },
-    ...    {
-    ...        "$sort": {
-    ...            "app": 1,
-    ...            "action": 1,
-    ...        }
-    ...    },
+    ...     {
+    ...         "$match": {
+    ...             "_event": {"$regexp": "Collect\s*app:.*timeline.*end.*elapse"},
+    ...         },
+    ...     },
+    ...     {
+    ...         "$project": {
+    ...             "app": {"$extract": ["$_event", "app:(\w*)"]},
+    ...             "action": {"$extract": ["$_event", "(cached|refresh|locked)"]},
+    ...             "elapse": {"$extract": ["$_event", "elapse:([\d.]*)"]},
+    ...         },
+    ...     },
+    ...     {
+    ...         "$group": {
+    ...             "_id": {
+    ...                 "app": "$app",
+    ...                 "action": "$action"
+    ...             },
+    ...             "count": {"$sum": 1},
+    ...             "min_elapse": {"$min": "$elapse"},
+    ...             "max_elapse": {"$max": "$elapse"},
+    ...             "sum_elapse": {"$sum": "$elapse"},
+    ...         }
+    ...     },
+    ...     {
+    ...         "$project": {
+    ...             "app": "$_id.app",
+    ...             "action": "$_id.action",
+    ...             "count": "$count",
+    ...             "min_elapse": "$min_elapse",
+    ...             "max_elapse": "$max_elapse",
+    ...             "avg_elapse": {"$divide": ["$sum_elapse", "$count"]},
+    ...         },
+    ...     },
+    ...     {
+    ...         "$sort": [
+    ...             ("app", 1),
+    ...             ("action", 1),
+    ...         ]
+    ...     },
     ... ]
 
-    >>> dataset = [{"_event": "[2014-01-16 16:13:49,171] DEBUG Collect app:app37 timeline end... refresh, elapse:0.105722904205"}, ...]
+    >>> dataset = [
+    ...     {
+    ...         "_event": "[2014-01-16 16:13:49,171] DEBUG Collect app:app37 timeline end... refresh, elapse:1.0",
+    ...     },
+    ...     {
+    ...         "_event": "[2014-01-16 16:13:49,171] DEBUG Collect app:app37 timeline end... cached, elapse:0.01",
+    ...     },
+    ...     {
+    ...         "_event": "[2014-01-16 16:13:49,171] DEBUG Collect app:app40 timeline end... refresh, elapse:2.0",
+    ...     },
+    ... ]
 
     >>> pipestat(dataset, pipeline)
     [
-      {
-        "app": "app37",
-        "action": "refresh",
-        "count": 1546.0,
-        "avg_elapse": 0.18074277347920925,
-        "min_elapse": 0.028223991394,
-        "max_elapse": 1.28353404999
-      },
-      {
-        "app": "app37",
-        "action": "locked",
-        "count": 49.0,
-        "avg_elapse": 0.023240566253672452,
-        "min_elapse": 0.00882887840271,
-        "max_elapse": 0.0649328231812
-      },
-      {
-        "app": "app37",
-        "action": "cached",
-        "count": 11257.0,
-        "avg_elapse": 0.016989750962513067,
-        "min_elapse": 0.00122380256653,
-        "max_elapse": 0.452320814133
-      }
+        {
+            "count": 1.0,
+            "avg_elapse": 0.01,
+            "app": "app37",
+            "action": "cached",
+            "min_elapse": 0.01,
+            "max_elapse": 0.01
+        },
+        {
+            "count": 1.0,
+            "avg_elapse": 1.0,
+            "app": "app37",
+            "action": "refresh",
+            "min_elapse": 1.0,
+            "max_elapse": 1.0
+        },
+        {
+            "count": 1.0,
+            "avg_elapse": 2.0,
+            "app": "app40",
+            "action": "refresh",
+            "min_elapse": 2.0,
+            "max_elapse": 2.0
+        }
     ]
 
 What commands pipestat support
@@ -219,16 +231,17 @@ the $sort pipeline command sorts all input documents and returns them to the pip
 See this `mongo aggregation $sort
 <http://docs.mongodb.org/manual/reference/operator/aggregation/sort/>`_ for more.
 
-$sort command is identical to mongo aggregation $sort, see a example as below:
+$sort command is identical to mongo aggregation $sort,
+but you should use tuple list instead of dict because python dict unordered! see a example as below:
 
 .. code:: python
 
     >>> pipeline = [
     ...    {
-    ...        "$sort": {
-    ...            "app": 1,
-    ...            "action": 1,
-    ...        }
+    ...        "$sort": [
+    ...            ("app", 1),
+    ...            ("action", 1),
+    ...        ]
     ...    },
     ... ]
 
@@ -282,3 +295,148 @@ $unwind command is identical to mongo aggregation $unwind, see a example as belo
     ...        "$unwind": "$tags",
     ...    },
     ... ]
+
+Advance Example
+-------------------------------------------------------------
+
+for same reason, maybe you want use low-level **Pipeline** class. with it you can do multiply pipestat for same dataset.
+see below example.
+
+..code:: python
+
+    >>> from pipestat import Pipeline, LimitExceedError
+
+    >>> dataset = [
+    ...     {
+    ...         "_event": "[2014-01-16 16:13:49,171] DEBUG Collect app:app37 timeline end... refresh, elapse:1.0",
+    ...     },
+    ...     {
+    ...         "_event": "[2014-01-16 16:13:49,171] DEBUG Collect app:app37 timeline end... cached, elapse:0.01",
+    ...     },
+    ...     {
+    ...         "_event": "[2014-01-16 16:13:49,171] DEBUG Collect app:app40 timeline end... refresh, elapse:2.0",
+    ...     },
+    ... ]
+
+    >>> pipeline1 = Pipeline([
+    ...     {
+    ...         "$match": {
+    ...             "_event": {"$regexp": "Collect\s*app:.*timeline.*end.*elapse"},
+    ...         },
+    ...     },
+    ...     {
+    ...         "$project": {
+    ...             "app": {"$extract": ["$_event", "app:(\w*)"]},
+    ...             "elapse": {"$extract": ["$_event", "elapse:([\d.]*)"]},
+    ...         },
+    ...     },
+    ...     {
+    ...         "$group": {
+    ...             "_id": {
+    ...                 "app": "$app",
+    ...             },
+    ...             "count": {"$sum": 1},
+    ...             "sum_elapse": {"$sum": "$elapse"},
+    ...         }
+    ...     },
+    ...     {
+    ...         "$project": {
+    ...             "app": "$_id.app",
+    ...             "avg_elapse": {"$divide": ["$sum_elapse", "$count"]},
+    ...         },
+    ...     },
+    ...     {
+    ...         "$sort": [
+    ...             ("app", 1),
+    ...         ]
+    ...     },
+    ... ])
+
+    >>> pipeline2 = Pipeline([
+    ...     {
+    ...         "$match": {
+    ...             "_event": {"$regexp": "Collect\s*app:.*timeline.*end.*elapse"},
+    ...         },
+    ...     },
+    ...     {
+    ...         "$project": {
+    ...             "app": {"$extract": ["$_event", "app:(\w*)"]},
+    ...             "action": {"$extract": ["$_event", "(cached|refresh|locked)"]},
+    ...         },
+    ...     },
+    ...     {
+    ...         "$group": {
+    ...             "_id": {
+    ...                 "app": "$app",
+    ...             },
+    ...             "actions": {"$addToSet": "$action"},
+    ...         }
+    ...     },
+    ...     {
+    ...         "$project": {
+    ...             "app": "$_id.app",
+    ...             "actions": "$actions",
+    ...         },
+    ...     },
+    ...     {
+    ...         "$sort": [
+    ...             ("app", 1),
+    ...         ]
+    ...     },
+    ... ])
+
+    >>> pipes = [pipeline1, pipeline2]
+    >>> for item in dataset:
+    ...     for p in pipes:
+    ...         try:
+    ...             p.feed(item)
+    ...         except LimitExceedError:
+    ...             pipes.remove(p)
+
+    >>> pipeline1.result()
+    [
+        {
+            "count": 1.0,
+            "avg_elapse": 0.01,
+            "app": "app37",
+            "action": "cached",
+            "min_elapse": 0.01,
+            "max_elapse": 0.01
+        },
+        {
+            "count": 1.0,
+            "avg_elapse": 1.0,
+            "app": "app37",
+            "action": "refresh",
+            "min_elapse": 1.0,
+            "max_elapse": 1.0
+        },
+        {
+            "count": 1.0,
+            "avg_elapse": 2.0,
+            "app": "app40",
+            "action": "refresh",
+            "min_elapse": 2.0,
+            "max_elapse": 2.0
+        }
+    ]
+
+    >>> pipeline2.result()
+    [
+        {
+            "app": "app37",
+            "actions": [
+                "cached",
+                "refresh"
+            ]
+        },
+        {
+            "app": "app40",
+            "actions": [
+                "refresh"
+            ]
+        }
+    ]
+
+as you see when you use low-level **Pipeline** class, you should handle LimitExceedError by youself.
+LimitExceedError is raise when you use **$limit**, and result is exceed limit count.
