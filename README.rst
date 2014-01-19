@@ -195,7 +195,9 @@ $call operator used for advance purpose if all above cannot satisfy you, use lik
     ... ]
 
 **pipestat** $project command **not support nest operator** like below:
+
 .. code:: python
+
     >>> pipeline = [
     ...     {
     ...         "$project": {
@@ -203,7 +205,9 @@ $call operator used for advance purpose if all above cannot satisfy you, use lik
     ...         }
     ...     }
     ... ]
+
 so if you want complex operator, please use **$call** operator. instead of use like above, you should do it like below:
+
 .. code:: python
 
     >>> traffic_tobytes = lambda x: x["traffic"] * 8.0 / 1024
