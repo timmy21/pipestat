@@ -169,15 +169,35 @@ class MatchPipeCmdTest(unittest.TestCase):
         self.assertEqual(len(cmd._data), 1)
 
         cmd = MatchPipeCmd({
-            "val": 50
-        })
-        cmd.feed({"val": 50})
-        self.assertEqual(len(cmd._data), 1)
-
-        cmd = MatchPipeCmd({
             "val": {"$eq": 50}
         })
         cmd.feed({"val": 51})
+        self.assertEqual(len(cmd._data), 0)
+
+    def test_in(self):
+        cmd = MatchPipeCmd({
+            "val": {"$in": [1, 2]}
+        })
+        cmd.feed({"val": 1})
+        self.assertEqual(len(cmd._data), 1)
+
+        cmd = MatchPipeCmd({
+            "val": {"$in": [1, 2]}
+        })
+        cmd.feed({"val": 3})
+        self.assertEqual(len(cmd._data), 0)
+
+    def test_nin(self):
+        cmd = MatchPipeCmd({
+            "val": {"$nin": [1, 2]}
+        })
+        cmd.feed({"val": 3})
+        self.assertEqual(len(cmd._data), 1)
+
+        cmd = MatchPipeCmd({
+            "val": {"$nin": [1, 2]}
+        })
+        cmd.feed({"val": 1})
         self.assertEqual(len(cmd._data), 0)
 
 
@@ -256,6 +276,20 @@ class ProjectPipeCmdTest(unittest.TestCase):
         })
         cmd.feed({"val1": 5, "val2": 2})
         self.assertEqual(cmd._data, [{"total": 2.5}])
+
+    def test_toLower(self):
+        cmd = ProjectPipeCmd({
+            "app": {"$toLower": "$app"}
+        })
+        cmd.feed({"app": "APP1"})
+        self.assertEqual(cmd._data, [{"app": "app1"}])
+
+    def test_toUpper(self):
+        cmd = ProjectPipeCmd({
+            "app": {"$toUpper": "$app"}
+        })
+        cmd.feed({"app": "app1"})
+        self.assertEqual(cmd._data, [{"app": "APP1"}])
 
 
 class GroupPipeCmdTest(unittest.TestCase):
@@ -360,6 +394,28 @@ class GroupPipeCmdTest(unittest.TestCase):
         cmd.feed({"app": "app1", "action": "cached"})
         self.assertEqual(cmd._gdata, {
             json.dumps({"_id": "app1"}): {"actions": ["refresh", "cached", "cached"]},
+        })
+
+    def test_concatToSet(self):
+        cmd = GroupPipeCmd({
+            "_id": "$app",
+            "actions": {"$concatToSet": "$action"},
+        })
+        cmd.feed({"app": "app1", "action": ["refresh", "cached"]})
+        cmd.feed({"app": "app1", "action": ["cached", "locked"]})
+        self.assertEqual(cmd._gdata, {
+            json.dumps({"_id": "app1"}): {"actions": ["cached", "locked", "refresh"]},
+        })
+
+    def test_concatList(self):
+        cmd = GroupPipeCmd({
+            "_id": "$app",
+            "actions": {"$concatList": "$action"},
+        })
+        cmd.feed({"app": "app1", "action": ["refresh", "cached"]})
+        cmd.feed({"app": "app1", "action": ["cached", "locked"]})
+        self.assertEqual(cmd._gdata, {
+            json.dumps({"_id": "app1"}): {"actions": ["refresh", "cached", "cached", "locked"]},
         })
 
 

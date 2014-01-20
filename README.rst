@@ -109,7 +109,7 @@ $match pipes the documents that match its conditions to the next operator in the
 See this `mongo aggregation $match
 <http://docs.mongodb.org/manual/reference/operator/aggregation/match/>`_ for more.
 
-$match command support basic operators: $and, $or, $gt, $gte, $lt, $lte, $ne and $eq,
+$match command support basic operators: $and, $or, $gt, $gte, $lt, $lte, $ne, $eq, $in, $nin.
 in addition to this, pipestat $match command support more, like **$regexp**, **$call**.
 
 $regex operator use regular expression to match specify field value, use like below:
@@ -150,7 +150,7 @@ Reshapes a document stream by renaming, adding, or removing fields. Also use $pr
 See this `mongo aggregation $project
 <http://docs.mongodb.org/manual/reference/operator/aggregation/project/>`_ for more.
 
-$project command support basic operators: $add, $substract, $multiply, and $divide,
+$project command support basic operators: $add, $substract, $multiply, $divide, $toLower, $toUpper.
 in addition to this, pipestat $project command support more, like **$extract**, **$timestamp**, **$call**.
 
 $extract operator use to extract field from other field use regular expression,
@@ -229,7 +229,8 @@ See this `mongo aggregation $group
 <http://docs.mongodb.org/manual/reference/operator/aggregation/group/>`_ for more.
 
 $group command support basic operators: $sum, $min, $max, $first, $last, $addToSet, $push.
-all this operators are identical to mongo corresponding operator, see a example as below:
+in addition to this, pipestat $group command support more, like **$concatToSet**, **concatList**.
+see a example as below:
 
 .. code:: python
 

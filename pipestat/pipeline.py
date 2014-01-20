@@ -6,6 +6,7 @@ import time
 import json
 import copy
 import collections
+import string
 from pipestat.bsort import insort
 
 
@@ -20,6 +21,7 @@ class PipeCmdExecuteError(Exception):
 
 class LimitExceedError(PipeCmdExecuteError):
     """limit cmd passed item exceed specify count"""
+
 
 
 class PipeCmd(object):
@@ -87,24 +89,22 @@ class MatchPipeCmd(PipeCmd):
             super(MatchPipeCmd, self).feed(item)
 
     def _is_match(self, item, k, ops):
-        if not isinstance(ops, dict):
-            if not getattr(self, "do_eq")(item, k, ops):
-                return False
-        else:
-            for op_k, op_v in ops.iteritems():
-                if self._is_operator(op_k):
-                    if hasattr(self, "do_%s" % op_k[1:]):
-                        if not getattr(self, "do_%s" % op_k[1:])(item, k, op_v):
-                            return False
-                    else:
-                        raise PipeCmdDefineError("$match command do not support %s operator." % op_k)
+        for op_k, op_v in ops.iteritems():
+            if self._is_operator(op_k):
+                if hasattr(self, "do_%s" % op_k[1:]):
+                    if not getattr(self, "do_%s" % op_k[1:])(item, k, op_v):
+                        return False
+                else:
+                    raise PipeCmdDefineError("$match command not support '%s' operator" % op_k)
+            else:
+                raise PipeCmdDefineError("'%r' is not a valid $match command's operator" % op_k)
         return True
 
     def do_call(self, item, k, op_v):
         if callable(op_v):
             return op_v(self._get_val(item, k), item)
         else:
-            raise PipeCmdDefineError("$match command's $call operator value:%r is not be callable." % op_v)
+            raise PipeCmdDefineError("$match command's $call operator value '%r' is not callable" % op_v)
 
     def do_regexp(self, item, k, op_v):
         v = self._get_val(item, k, default="")
@@ -155,6 +155,14 @@ class MatchPipeCmd(PipeCmd):
         op_v = self._get_val(item, op_v)
         return v == op_v
 
+    def do_in(self, item, k, op_v):
+        v = self._get_val(item, k)
+        return v in op_v
+
+    def do_nin(self, item, k, op_v):
+        v = self._get_val(item, k)
+        return v not in op_v
+
 
 class ProjectPipeCmd(PipeCmd):
 
@@ -169,7 +177,7 @@ class ProjectPipeCmd(PipeCmd):
                 new_vals[k] = self._get_val(item, v)
             else:
                 op_k = v.keys()[0]
-                if op_k[0] == "$":
+                if self._is_operator(op_k):
                     new_vals[k] = getattr(self, "do_%s" % op_k[1:])(item, k, v[op_k])
                 else:
                     new_vals[k] = self._new_vals(item, v)
@@ -189,7 +197,7 @@ class ProjectPipeCmd(PipeCmd):
                 else:
                     return m.group()
         else:
-            raise PipeCmdDefineError("$project command's $extract operator first argument should be item's key, but %r is not start with '$'" % op_args_k)
+            raise PipeCmdDefineError("$project command's $extract operator first argument '%r' is not a valid item key" % op_args_k)
 
     def do_timestamp(self, item, k, op_v):
         op_args_k = op_v[0]
@@ -198,14 +206,13 @@ class ProjectPipeCmd(PipeCmd):
             v = self._get_val(item, op_args_k, default="")
             return time.mktime(time.strptime(v, op_args_fmt))
         else:
-            raise PipeCmdDefineError("$project command's $timestamp operator first argument should be item's key, but '%s' not start with '$'" % op_args_k)
+            raise PipeCmdDefineError("$project command's $timestamp operator first argument '%r' is not a valid item key" % op_args_k)
 
     def do_call(self, item, k, op_v):
-        return op_v(item)
         if callable(op_v):
             return op_v(item)
         else:
-            raise PipeCmdDefineError("$project command's $call operator value:%r is not be callable." % op_v)
+            raise PipeCmdDefineError("$project command's $call operator value '%r' is not callable" % op_v)
 
     def do_add(self, item, k, op_v):
         v1 = float(self._get_val(item, op_v[0]))
@@ -226,6 +233,14 @@ class ProjectPipeCmd(PipeCmd):
         v1 = float(self._get_val(item, op_v[0]))
         v2 = float(self._get_val(item, op_v[1]))
         return v1/v2
+
+    def do_toLower(self, item, k, op_v):
+        v = self._get_val(item, op_v)
+        return string.lower(v)
+
+    def do_toUpper(self, item, k, op_v):
+        v = self._get_val(item, op_v)
+        return string.upper(v)
 
 
 class GroupPipeCmd(PipeCmd):
@@ -248,9 +263,9 @@ class GroupPipeCmd(PipeCmd):
                 if hasattr(self, "do_%s" % op_k[1:]):
                     new_vals[k] = getattr(self, "do_%s" % op_k[1:])(item, old_vals.get(k), v[op_k])
                 else:
-                    raise PipeCmdDefineError("$group command do not support %s operator." % op_k)
+                    raise PipeCmdDefineError("$group command not support %s operator" % op_k)
             else:
-                raise PipeCmdDefineError("$group command has invalid operator:%r" % op_k)
+                raise PipeCmdDefineError("'%r' is not a valid $group command's operator" % op_k)
 
         self._gdata[gid] = new_vals
 
@@ -275,7 +290,7 @@ class GroupPipeCmd(PipeCmd):
 
     def _get_id(self, item, id_v):
         if isinstance(id_v, basestring):
-            if id_v[0] == "$":
+            if self._is_item_key(id_v):
                 return item.get(id_v[1:])
             else:
                 return id_v
@@ -327,26 +342,37 @@ class GroupPipeCmd(PipeCmd):
             return old_v
 
     def do_addToSet(self, item, old_v, op_v):
-        op_v = self._get_val(item, op_v)
         if old_v is None:
-            if op_v is not None:
-                return [op_v]
-        else:
-            if op_v is not None:
-                return list(set(old_v + [op_v]))
-            else:
-                return old_v
+            old_v = []
+        op_v = self._get_val(item, op_v)
+        if op_v is not None:
+            return list(set(old_v + [op_v]))
+        return old_v
 
     def do_push(self, item, old_v, op_v):
-        op_v = self._get_val(item, op_v)
         if old_v is None:
-            if op_v is not None:
-                return [op_v]
+            old_v = []
+        op_v = self._get_val(item, op_v)
+        if op_v is not None:
+            return old_v + [op_v]
         else:
-            if op_v is not None:
-                return old_v + [op_v]
-            else:
-                return old_v
+            return old_v
+
+    def do_concatToSet(self, item, old_v, op_v):
+        if old_v is None:
+            old_v = []
+        op_v = self._get_val(item, op_v)
+        if op_v is not None:
+            return list(set(old_v + list(op_v)))
+        return old_v
+
+    def do_concatList(self, item, old_v, op_v):
+        if old_v is None:
+            old_v = []
+        op_v = self._get_val(item, op_v)
+        if op_v is not None:
+            return old_v + list(op_v)
+        return old_v
 
 
 class SortCmd(PipeCmd):
@@ -364,7 +390,7 @@ class SortCmd(PipeCmd):
             elif direction == -1:
                 ret = cmp(v2, v1)
             else:
-                raise PipeCmdDefineError('Unknow sort direction val:"%s", valid value is 1 or -1.', direction)
+                raise PipeCmdDefineError("$sort command direction value '%r' is invalid", direction)
             if ret == 0:
                 continue
             else:
@@ -417,7 +443,7 @@ class UnwindCmd(PipeCmd):
     def __init__(self, val):
         super(UnwindCmd, self).__init__(val)
         if not self._is_item_key(self.val):
-            raise PipeCmdDefineError("$unwind command paramter should be item key, but %r do not start with '$'" % self.val)
+            raise PipeCmdDefineError("$unwind command argument '%r' is not a valid item key" % self.val)
 
     def feed(self, item):
         vals = self._get_val(item, self.val)
@@ -427,7 +453,7 @@ class UnwindCmd(PipeCmd):
                 self._set_val(new_item, self.val[1:], v)
                 super(UnwindCmd, self).feed(new_item)
         else:
-            raise PipeCmdExecuteError("$unwind command paramter field's value:%s is not Iterable" % vals)
+            raise PipeCmdExecuteError("$unwind command argument value '%r' is not Iterable" % vals)
 
 
 class Pipeline(object):
@@ -445,7 +471,7 @@ class Pipeline(object):
                 raise PipeCmdDefineError, exc_info[1], exc_info[2]
 
             if not cmd:
-                raise PipeCmdDefineError('Cannot find command:"%s"' % cmd_k)
+                raise PipeCmdDefineError("pipeline not find command '%r'" % cmd_k)
             if prev_cmd:
                 prev_cmd.next = cmd
             else:
@@ -453,7 +479,7 @@ class Pipeline(object):
             prev_cmd = cmd
 
         if not self.cmd:
-            raise PipeCmdDefineError('Cannot find any command')
+            raise PipeCmdDefineError('pipeline not find any command')
 
     def _new_cmd(self, cmd_k, cmd_v):
         if cmd_k == "$match":
