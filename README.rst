@@ -468,7 +468,6 @@ LimitExceedError is raise when you use $limit command, and required items is exc
 
 Next to do
 -------------------------------------------------------------
-- add testcase and bug free.
 - add more examples.
 - make exception more human-readable.
 - implement parallel.

@@ -79,7 +79,7 @@ class MatchPipeCmd(PipeCmd):
     def feed(self, item):
         matched = True
         for k, ops in self.val.iteritems():
-            if not self._is_match(item, k, ops):
+            if not self._is_match(item, "$"+k, ops):
                 matched = False
                 break
 
@@ -87,16 +87,17 @@ class MatchPipeCmd(PipeCmd):
             super(MatchPipeCmd, self).feed(item)
 
     def _is_match(self, item, k, ops):
-        for op_k, op_v in ops.iteritems():
-            if self._is_operator(op_k):
-                if hasattr(self, "do_%s" % op_k[1:]):
-                    if not getattr(self, "do_%s" % op_k[1:])(item, "$"+k, op_v):
-                        return False
-                else:
-                    raise PipeCmdDefineError("$match command do not support %s operator." % op_k)
-            else:
-                if not getattr(self, "do_eq")(item, "$"+k, op_v):
-                    return False
+        if not isinstance(ops, dict):
+            if not getattr(self, "do_eq")(item, k, ops):
+                return False
+        else:
+            for op_k, op_v in ops.iteritems():
+                if self._is_operator(op_k):
+                    if hasattr(self, "do_%s" % op_k[1:]):
+                        if not getattr(self, "do_%s" % op_k[1:])(item, k, op_v):
+                            return False
+                    else:
+                        raise PipeCmdDefineError("$match command do not support %s operator." % op_k)
         return True
 
     def do_call(self, item, k, op_v):
