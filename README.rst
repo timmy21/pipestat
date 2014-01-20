@@ -124,11 +124,11 @@ $regex operator use regular expression to match specify field value, use like be
     ...    },
     ... ]
 
-$call operator use callable(parameter is field value and item), and return True or False to indicate match or not, use like below:
+$call operator use callable(argument is item field value and item), and return True or False to indicate match or not, use like below:
 
 .. code:: python
 
-    >>> mf = lambda v, item: v > item["out"]
+    >>> mf = lambda v, item: v > item["out"] # equal to item["in"] > item["out"]
 
     >>> pipeline = [
     ...    {
@@ -194,7 +194,7 @@ $call operator used for advance purpose if all above cannot satisfy you, use lik
     ...    },
     ... ]
 
-**pipestat** $project command **not support nest operator** like below:
+pipestat $project command **not support nest operator** like below:
 
 .. code:: python
 
@@ -229,7 +229,7 @@ See this `mongo aggregation $group
 <http://docs.mongodb.org/manual/reference/operator/aggregation/group/>`_ for more.
 
 $group command support basic operators: $sum, $min, $max, $first, $last, $addToSet, $push.
-in addition to this, pipestat $group command support more, like **$concatToSet**, **concatList**.
+in addition to this, pipestat $group command support more, like **$concatToSet**, **$concatList**.
 see a example as below:
 
 .. code:: python
