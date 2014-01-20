@@ -124,7 +124,7 @@ $regex operator use regular expression to match specify field value, use like be
     ...    },
     ... ]
 
-$call operator use callable which return True or False to match specify field value, use like below:
+$call operator use callable(parameter is field value and item), and return True or False to indicate match or not, use like below:
 
 .. code:: python
 
@@ -210,12 +210,12 @@ so if you want complex operator, please use **$call** operator. instead of use l
 
 .. code:: python
 
-    >>> traffic_tobytes = lambda x: x["traffic"] * 8.0 / 1024
+    >>> bytes_kbps = lambda x: x["traffic"] * 8.0 / 1024
 
     >>> pipeline = [
     ...    {
     ...        "$project": {
-    ...            "traffic": {"$call": traffic_tobytes},
+    ...            "traffic": {"$call": bytes_kbps},
     ...        },
     ...    },
     ... ]
@@ -256,7 +256,7 @@ See this `mongo aggregation $sort
 <http://docs.mongodb.org/manual/reference/operator/aggregation/sort/>`_ for more.
 
 $sort command is identical to mongo aggregation $sort,
-but you should use tuple list instead of dict because python dict is unordered! see a example as below:
+but you should use a list of tuple instead of dict because python dict is unordered! see a example as below:
 
 .. code:: python
 
@@ -469,5 +469,5 @@ LimitExceedError is raise when you use $limit command, and required items is exc
 Next to do
 -------------------------------------------------------------
 - add more examples.
-- make exception more human-readable.
+- make exception more human readable.
 - implement parallel.
