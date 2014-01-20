@@ -1,7 +1,11 @@
 # -*- coding: utf-8 -*-
 
 import unittest
-from pipestat.pipeline import PipeCmd, MatchPipeCmd, ProjectPipeCmd
+import json
+from pipestat.pipeline import (
+    PipeCmd, MatchPipeCmd, ProjectPipeCmd, GroupPipeCmd,
+    SortCmd, SkipCmd, LimitCmd, UnwindCmd
+)
 from pipestat.pipeline import PipeCmdDefineError
 
 
@@ -76,6 +80,86 @@ class ProjectPipeCmdTest(unittest.TestCase):
         })
         cmd.feed({"timestr": "2014-01-19 22:00:00"})
         self.assertEqual(cmd._data, [{"ts": 1390140000.0}])
+
+    def test_call(self):
+        cmd = ProjectPipeCmd({
+            "ts": {"$call": lambda x: x["ts"]//5*5}
+        })
+        cmd.feed({"ts": 11})
+        self.assertEqual(cmd._data, [{"ts": 10}])
+
+
+class GroupPipeCmdTest(unittest.TestCase):
+
+    def test_sum(self):
+        cmd = GroupPipeCmd({
+            "_id": "$app",
+            "elapse": {"$sum": "$elapse"},
+        })
+        cmd.feed({"app": "app1", "elapse": 1})
+        cmd.feed({"app": "app1", "elapse": 2})
+        cmd.feed({"app": "app2", "elapse": 1})
+        self.assertEqual(cmd._gdata, {
+            json.dumps({"_id": "app1"}): {"elapse": 3},
+            json.dumps({"_id": "app2"}): {"elapse": 1},
+        })
+
+
+class SortCmdTest(unittest.TestCase):
+
+    def test_sort(self):
+        cmd = SortCmd([
+            ("app", 1),
+            ("elapse", -1),
+        ])
+        cmd.feed({"app": "app2", "elapse": 3})
+        cmd.feed({"app": "app1", "elapse": 1})
+        cmd.feed({"app": "app1", "elapse": 4})
+        self.assertListEqual(cmd._data, [
+            {"app": "app1", "elapse": 4},
+            {"app": "app1", "elapse": 1},
+            {"app": "app2", "elapse": 3},
+        ])
+
+
+class SkipCmdTest(unittest.TestCase):
+
+    def test_skip(self):
+        cmd = SkipCmd(1)
+        cmd.feed({"app": "app2", "elapse": 3})
+        cmd.feed({"app": "app1", "elapse": 1})
+        cmd.feed({"app": "app1", "elapse": 4})
+        self.assertListEqual(cmd._data, [
+            {"app": "app1", "elapse": 1},
+            {"app": "app1", "elapse": 4},
+        ])
+
+
+class LimitCmdTest(unittest.TestCase):
+
+    def test_skip(self):
+        cmd = LimitCmd(2)
+        try:
+            cmd.feed({"app": "app2", "elapse": 3})
+            cmd.feed({"app": "app1", "elapse": 1})
+            cmd.feed({"app": "app1", "elapse": 4})
+        except Exception:
+            pass
+        self.assertListEqual(cmd._data, [
+            {"app": "app2", "elapse": 3},
+            {"app": "app1", "elapse": 1},
+        ])
+
+
+class UnwindCmdTest(unittest.TestCase):
+
+    def test_unwind(self):
+        cmd = UnwindCmd("$tags")
+        cmd.feed({"app": "app2", "tags": ["tag1", "tag2"]})
+        self.assertListEqual(cmd._data, [
+            {"app": "app2", "tags": "tag1"},
+            {"app": "app2", "tags": "tag2"},
+        ])
 
 
 

@@ -391,8 +391,9 @@ class SkipCmd(PipeCmd):
 
     def feed(self, item):
         if self._skiped >= self.val:
-            self._skiped += 1
             super(SkipCmd, self).feed(item)
+        else:
+            self._skiped += 1
 
 
 class LimitCmd(PipeCmd):
@@ -422,7 +423,7 @@ class UnwindCmd(PipeCmd):
         if isinstance(vals, collections.Iterable):
             for v in vals:
                 new_item = copy.deepcopy(item)
-                self._set_val(item, self.val[1:], v)
+                self._set_val(new_item, self.val[1:], v)
                 super(UnwindCmd, self).feed(new_item)
         else:
             raise PipeCmdExecuteError("$unwind command paramter field's value:%s is not Iterable" % vals)
