@@ -11,7 +11,47 @@ from pipestat.utils import Value
 from pipestat.constants import ASCENDING, DESCENDING
 
 
+_commands = {}
+
+
+class CommandFactory(object):
+
+    @staticmethod
+    def new(value):
+        def is_valid():
+            if not isinstance(value, dict):
+                return False
+            if len(value) != 1:
+                return False
+            cmd_k = value.keys()[0]
+            if not cmd_k:
+                return False
+            if cmd_k[0] != "$":
+                return False
+            return True
+
+        if not is_valid():
+            raise CommandError("invalid command %r" % value)
+        cmd_k = value.keys()[0]
+        cmd_v = value[cmd_k]
+        if cmd_k in _commands:
+            return _commands[cmd_k](cmd_v)
+        else:
+            raise CommandError("invalid command %r" % value)
+
+
+class CommandMeta(type):
+
+    def __init__(cls, name, bases, attrs):
+        command = getattr(cls, "name", None)
+        if command and command not in _commands:
+            _commands[command] = cls
+        super(CommandMeta, cls).__init__(name, bases, attrs)
+
+
 class Command(object):
+
+    __metaclass__ = CommandMeta
 
     def __init__(self, value):
         self.value = value
