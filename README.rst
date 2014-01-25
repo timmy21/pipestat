@@ -391,7 +391,7 @@ see below example.
     >>> for item in dataset:
     ...     try:
     ...         pipeline.feed(item)
-    ...     except LimitCmdCompleted:
+    ...     except LimitCompleted:
     ...         break
 
     >>> pipeline.result()
@@ -422,5 +422,5 @@ see below example.
         }
     ]
 
-as you see when you use low-level **Pipeline** class, you should handle **LimitCmdCompleted** by youself.
+as you see when you use low-level **Pipeline** class, you should handle **LimitCompleted** by youself.
 LimitExceedError is raise when you use $limit command, and required items is exceed limit count.

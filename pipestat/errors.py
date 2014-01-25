@@ -3,11 +3,11 @@
 class PipeStatError(Exception):
     """pipestat base error"""
 
-class OperatorError(Exception):
+class OperatorError(PipeStatError):
     """command operator error"""
 
-class PipeCmdError(Exception):
+class CommandError(PipeStatError):
     """pipe command error"""
 
-class LimitCmdCompleted(PipeCmdError):
+class LimitCompleted(PipeStatError):
     """limit command completed"""

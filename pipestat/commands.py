@@ -4,14 +4,14 @@ import json
 import copy
 import collections
 from pipestat.bsort import insort
-from pipestat.errors import PipeCmdError, LimitCmdCompleted
+from pipestat.errors import CommandError, LimitCompleted
 from pipestat.operator import OperatorFactory
 from pipestat.models import Document
 from pipestat.utils import Value
 from pipestat.constants import ASCENDING, DESCENDING
 
 
-class PipeCmd(object):
+class Command(object):
 
     def __init__(self, value):
         self.value = value
@@ -31,17 +31,17 @@ class PipeCmd(object):
             return self.documents
 
     def make_error(self, message):
-        return PipeCmdError('invalid command %s value=%r message="%s"' % (
+        return CommandError('invalid command %s value=%r message="%s"' % (
             self.name, self.value, message
         ))
 
 
-class MatchPipeCmd(PipeCmd):
+class MatchCommand(Command):
 
     name = "$match"
 
     def __init__(self, value):
-        super(MatchPipeCmd, self).__init__(value)
+        super(MatchCommand, self).__init__(value)
         if not isinstance(value, dict):
             raise self.make_error("value is invalid")
         operators = []
@@ -57,14 +57,15 @@ class MatchPipeCmd(PipeCmd):
                 break
 
         if matched:
-            super(MatchPipeCmd, self).feed(document)
+            super(MatchCommand, self).feed(document)
 
 
-class ProjectPipeCmd(PipeCmd):
+class ProjectCommand(Command):
 
     name = "$project"
 
     def __init__(self, value):
+        super(ProjectCommand, self).__init__(value)
         if not isinstance(value, dict):
             raise self.make_error("value is invalid")
         operators = []
@@ -76,15 +77,15 @@ class ProjectPipeCmd(PipeCmd):
         new_doc = Document()
         for op in self.operators:
             new_doc.update(op.project(document))
-        super(ProjectPipeCmd, self).feed(new_doc)
+        super(ProjectCommand, self).feed(new_doc)
 
 
-class GroupPipeCmd(PipeCmd):
+class GroupCommand(Command):
 
     name = "$group"
 
     def __init__(self, value):
-        super(GroupPipeCmd, self).__init__(value)
+        super(GroupCommand, self).__init__(value)
         if not isinstance(value, dict):
             raise self.make_error("value is invalid")
         elif "_id" not in value:
@@ -110,7 +111,7 @@ class GroupPipeCmd(PipeCmd):
             try:
                 for doc in documents:
                     self.next.feed(doc)
-            except LimitCmdCompleted:
+            except LimitCompleted:
                 pass
             return self.next.result()
         else:
@@ -140,12 +141,12 @@ class GroupPipeCmd(PipeCmd):
             return id_v
 
 
-class SortCmd(PipeCmd):
+class SortCommand(Command):
 
     name = "$sort"
 
     def __init__(self, value):
-        super(SortCmd, self).__init__(value)
+        super(SortCommand, self).__init__(value)
         if not isinstance(value, collections.Iterable):
             raise self.make_error("value is not iterable")
         try:
@@ -180,19 +181,19 @@ class SortCmd(PipeCmd):
             try:
                 for doc in self.documents:
                     self.next.feed(doc)
-            except LimitCmdCompleted:
+            except LimitCompleted:
                 pass
             return self.next.result()
         else:
             return self.documents
 
 
-class SkipCmd(PipeCmd):
+class SkipCommand(Command):
 
     name = "$skip"
 
     def __init__(self, value):
-        super(SkipCmd, self).__init__(value)
+        super(SkipCommand, self).__init__(value)
         try:
             self.value = int(value)
         except Exception, e:
@@ -201,17 +202,17 @@ class SkipCmd(PipeCmd):
 
     def feed(self, document):
         if self._skiped >= self.value:
-            super(SkipCmd, self).feed(document)
+            super(SkipCommand, self).feed(document)
         else:
             self._skiped += 1
 
 
-class LimitCmd(PipeCmd):
+class LimitCommand(Command):
 
     name = "$limit"
 
     def __init__(self, value):
-        super(LimitCmd, self).__init__(value)
+        super(LimitCommand, self).__init__(value)
         try:
             self.value = int(value)
         except Exception, e:
@@ -221,17 +222,17 @@ class LimitCmd(PipeCmd):
     def feed(self, document):
         if self._received < self.value:
             self._received += 1
-            super(LimitCmd, self).feed(document)
+            super(LimitCommand, self).feed(document)
         else:
-            raise LimitCmdCompleted('command $limit alreay received %d documents' % self.value)
+            raise LimitCompleted('command $limit alreay received %d documents' % self.value)
 
 
-class UnwindCmd(PipeCmd):
+class UnwindCommand(Command):
 
     name = "$unwind"
 
     def __init__(self, value):
-        super(UnwindCmd, self).__init__(value)
+        super(UnwindCommand, self).__init__(value)
         if not Value.is_doc_ref_key(value):
             raise self.make_error("value is not document ref-key")
 
@@ -240,4 +241,4 @@ class UnwindCmd(PipeCmd):
         for v in vals:
             new_doc = Document(copy.deepcopy(document))
             new_doc.set(self.value[1:], v)
-            super(UnwindCmd, self).feed(new_doc)
+            super(UnwindCommand, self).feed(new_doc)

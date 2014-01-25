@@ -92,14 +92,14 @@ class MatchOperator(Operator):
         raise NotImplemented()
 
 
-class MatchCompareOperator(MatchOperator):
+class MatchKeyCmpOperator(MatchOperator):
 
     def __init__(self, key, value):
         self.key = key
         self.value = value
 
 
-class MatchRegexpOperator(MatchCompareOperator):
+class MatchRegexpOperator(MatchKeyCmpOperator):
 
     name = "$regexp"
 
@@ -118,7 +118,7 @@ class MatchRegexpOperator(MatchCompareOperator):
         return False
 
 
-class MatchNumberCmpOperator(MatchCompareOperator):
+class MatchNumberCmpOperator(MatchKeyCmpOperator):
 
     def __init__(self, key, value):
         super(MatchNumberCmpOperator, self).__init__(key, value)
@@ -172,7 +172,7 @@ class MatchGTEOperator(MatchNumberCmpOperator):
         return doc_val >= value
 
 
-class MatchEqualOperator(MatchCompareOperator):
+class MatchEqualOperator(MatchKeyCmpOperator):
 
     name = "$eq"
 
@@ -185,7 +185,7 @@ class MatchEqualOperator(MatchCompareOperator):
             return doc_val == self.value
 
 
-class MatchNotEqualOperator(MatchCompareOperator):
+class MatchNotEqualOperator(MatchKeyCmpOperator):
 
     name = "$ne"
 
@@ -198,7 +198,7 @@ class MatchNotEqualOperator(MatchCompareOperator):
             return doc_val != self.value
 
 
-class MatchBelongOperator(MatchCompareOperator):
+class MatchBelongOperator(MatchKeyCmpOperator):
 
     def __init__(self, key, value):
         super(MatchBelongOperator, self).__init__(key, value)
@@ -236,7 +236,7 @@ class MatchNotInOperator(MatchBelongOperator):
         return doc_val not in value
 
 
-class MatchCallOperator(MatchCompareOperator):
+class MatchCallOperator(MatchKeyCmpOperator):
 
     name = "$call"
 
@@ -295,13 +295,13 @@ class MatchOrOperator(MatchLogicOperator):
         return False
 
 
-class MatchCombineOperator(MatchOperator):
+class MatchCombineOperator(MatchKeyCmpOperator):
 
     def __init__(self, key, value):
         super(MatchCombineOperator, self).__init__(key, value)
         combined_ops = []
         for k, v in value.iteritems():
-            combined_ops.append(OperatorFactory.new_match(key, {k, v}))
+            combined_ops.append(OperatorFactory.new_match(key, {k: v}))
         self.combined_ops = combined_ops
 
     def match(self, document):
@@ -452,7 +452,7 @@ class ProjectDivideOperator(ProjectDualNumberOperator):
 class ProjectConvertStrOperator(ProjectOperator):
 
     def __init__(self, key, value):
-        super(ProjectTimestampOperator, self).__init__(key, value)
+        super(ProjectConvertStrOperator, self).__init__(key, value)
         if not isinstance(value, basestring):
             raise self.make_error("first value=%r is not string or document key" % value[0])
 

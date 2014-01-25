@@ -2,11 +2,11 @@
 
 import sys
 from pipestat.commands import (
-    MatchPipeCmd, ProjectPipeCmd, GroupPipeCmd,
-    SortCmd, SkipCmd, LimitCmd, UnwindCmd
+    MatchCommand, ProjectCommand, GroupCommand,
+    SortCommand, SkipCommand, LimitCommand, UnwindCommand
 )
 from pipestat.errors import (
-    PipeStatError, PipeCmdError, LimitCmdCompleted
+    PipeStatError, CommandError, LimitCompleted
 )
 from pipestat.models import Document
 
@@ -18,7 +18,7 @@ class Pipeline(object):
         prev_cmd = None
         for p in pipeline:
             if not self._valid(p):
-                raise PipeCmdError('Invalid pipeline command "%s"' % p)
+                raise CommandError('invalid pipeline command %r' % p)
 
             cmd_k = p.keys()[0]
             cmd_v = p[cmd_k]
@@ -28,10 +28,10 @@ class Pipeline(object):
                 raise
             except Exception:
                 exc_info = sys.exc_info()
-                raise PipeCmdError, exc_info[1], exc_info[2]
+                raise CommandError, exc_info[1], exc_info[2]
 
             if not cmd:
-                raise PipeCmdError('pipeline not support command "%s"' % cmd_k)
+                raise CommandError('pipeline not support command %r' % p)
             if prev_cmd:
                 prev_cmd.next = cmd
             else:
@@ -39,7 +39,7 @@ class Pipeline(object):
             prev_cmd = cmd
 
         if not self.cmd:
-            raise PipeCmdError('pipeline not have any command')
+            raise CommandError('pipeline not have any command')
 
     def _valid(self, pipe):
         if not isinstance(pipe, dict):
@@ -56,24 +56,24 @@ class Pipeline(object):
 
     def _new_cmd(self, cmd_k, cmd_v):
         if cmd_k == "$match":
-            return MatchPipeCmd(cmd_v)
+            return MatchCommand(cmd_v)
         elif cmd_k == "$project":
-            return ProjectPipeCmd(cmd_v)
+            return ProjectCommand(cmd_v)
         elif cmd_k == "$group":
-            return GroupPipeCmd(cmd_v)
+            return GroupCommand(cmd_v)
         elif cmd_k == "$sort":
-            return SortCmd(cmd_v)
+            return SortCommand(cmd_v)
         elif cmd_k == "$skip":
-            return SkipCmd(cmd_v)
+            return SkipCommand(cmd_v)
         elif cmd_k == '$limit':
-            return LimitCmd(cmd_v)
+            return LimitCommand(cmd_v)
         elif cmd_k == "$unwind":
-            return UnwindCmd(cmd_v)
+            return UnwindCommand(cmd_v)
 
     def feed(self, item):
         try:
             self.cmd.feed(Document(item))
-        except LimitCmdCompleted:
+        except LimitCompleted:
             raise
         except PipeStatError:
             raise
