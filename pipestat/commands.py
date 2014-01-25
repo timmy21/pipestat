@@ -233,16 +233,11 @@ class UnwindCmd(PipeCmd):
     def __init__(self, value):
         super(UnwindCmd, self).__init__(value)
         if not Value.is_doc_ref_key(value):
-            if not isinstance(value, collections.Iterable):
-                raise self.make_error("value is not iterable or document ref-key")
-            elif not value:
-                raise self.make_error("value is not empty")
+            raise self.make_error("value is not document ref-key")
 
     def feed(self, document):
-        value = self.value
-        if Value.is_doc_ref_key(value):
-            value = document.get(value[1:])
-        for v in value:
-            new_doc = copy.deepcopy(document)
-            new_doc.set(value[1:], v)
+        vals = document.get(self.value[1:])
+        for v in vals:
+            new_doc = Document(copy.deepcopy(document))
+            new_doc.set(self.value[1:], v)
             super(UnwindCmd, self).feed(new_doc)
