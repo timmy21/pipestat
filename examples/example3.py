@@ -4,7 +4,7 @@ from os.path import join, dirname, abspath
 sys.path.append(join(dirname(abspath(__file__)), "../"))
 
 import json
-from pipestat import Pipeline, LimitExceedError
+from pipestat import Pipeline, LimitCmdCompleted
 
 
 pipeline1 = Pipeline([
@@ -92,7 +92,7 @@ for item in dataset:
     for p in pipes:
         try:
             p.feed(item)
-        except LimitExceedError:
+        except LimitCmdCompleted:
             pipes.remove(p)
 
 print json.dumps(pipeline1.result(), indent=4)
