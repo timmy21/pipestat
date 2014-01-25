@@ -469,7 +469,7 @@ class SkipCommandTest(unittest.TestCase):
 
 class LimitCommandTest(unittest.TestCase):
 
-    def test_skip(self):
+    def test_limit(self):
         cmd = LimitCommand(2)
         try:
             cmd.feed(Document({"app": "app2", "elapse": 3}))
