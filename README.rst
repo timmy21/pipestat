@@ -46,9 +46,11 @@ extract fields from event, and then stat count and elapse:
     ...             "app": "$_id.app",
     ...             "action": "$_id.action",
     ...             "count": "$count",
-    ...             "min_elapse": "$min_elapse",
-    ...             "max_elapse": "$max_elapse",
-    ...             "avg_elapse": {"$divide": ["$sum_elapse", "$count"]},
+    ...             "elapse": {
+    ...                 "min": "$min_elapse",
+    ...                 "max": "$max_elapse",
+    ...                 "avg": {"$divide": ["$sum_elapse", "$count"]},
+    ...             },
     ...         },
     ...     },
     ...     {
@@ -64,6 +66,9 @@ extract fields from event, and then stat count and elapse:
     ...         "_event": "[2014-01-16 16:13:49,171] DEBUG Collect app:app37 timeline end... refresh, elapse:1.0",
     ...     },
     ...     {
+    ...         "_event": "[2014-01-16 16:13:49,171] DEBUG Collect app:app37 timeline end... refresh, elapse:2.0",
+    ...     },
+    ...     {
     ...         "_event": "[2014-01-16 16:13:49,171] DEBUG Collect app:app37 timeline end... cached, elapse:0.01",
     ...     },
     ...     {
@@ -75,27 +80,33 @@ extract fields from event, and then stat count and elapse:
     [
         {
             "count": 1.0,
-            "avg_elapse": 0.01,
             "app": "app37",
             "action": "cached",
-            "min_elapse": 0.01,
-            "max_elapse": 0.01
+            "elapse": {
+                "min": 0.01,
+                "max": 0.01,
+                "avg": 0.01,
+            }
         },
         {
             "count": 1.0,
-            "avg_elapse": 1.0,
             "app": "app37",
             "action": "refresh",
-            "min_elapse": 1.0,
-            "max_elapse": 1.0
+            "elapse": {
+                "min": 1.0,
+                "max": 2.0,
+                "avg": 1.5,
+            }
         },
         {
             "count": 1.0,
-            "avg_elapse": 2.0,
             "app": "app40",
             "action": "refresh",
-            "min_elapse": 2.0,
-            "max_elapse": 2.0
+            "elapse": {
+                "min": 2.0,
+                "max": 2.0,
+                "avg": 2.0,
+            }
         }
     ]
 
@@ -343,7 +354,7 @@ see below example.
     ...     },
     ... ]
 
-    >>> pipeline1 = Pipeline([
+    >>> pipeline = Pipeline([
     ...     {
     ...         "$match": {
     ...             "_event": {"$regexp": "Collect\s*app:.*timeline.*end.*elapse"},
@@ -377,49 +388,13 @@ see below example.
     ...     },
     ... ])
 
-    >>> pipeline2 = Pipeline([
-    ...     {
-    ...         "$match": {
-    ...             "_event": {"$regexp": "Collect\s*app:.*timeline.*end.*elapse"},
-    ...         },
-    ...     },
-    ...     {
-    ...         "$project": {
-    ...             "app": {"$extract": ["$_event", "app:(\w*)"]},
-    ...             "action": {"$extract": ["$_event", "(cached|refresh|locked)"]},
-    ...         },
-    ...     },
-    ...     {
-    ...         "$group": {
-    ...             "_id": {
-    ...                 "app": "$app",
-    ...             },
-    ...             "actions": {"$addToSet": "$action"},
-    ...         }
-    ...     },
-    ...     {
-    ...         "$project": {
-    ...             "app": "$_id.app",
-    ...             "actions": "$actions",
-    ...         },
-    ...     },
-    ...     {
-    ...         "$sort": [
-    ...             ("app", 1),
-    ...         ]
-    ...     },
-    ... ])
-
-    >>> pipes = [pipeline1, pipeline2]
-
     >>> for item in dataset:
-    ...     for p in pipes:
-    ...         try:
-    ...             p.feed(item)
-    ...         except LimitExceedError:
-    ...             pipes.remove(p)
+    ...     try:
+    ...         pipeline.feed(item)
+    ...     except LimitExceedError:
+    ...         break
 
-    >>> pipeline1.result()
+    >>> pipeline.result()
     [
         {
             "count": 1.0,
@@ -447,28 +422,5 @@ see below example.
         }
     ]
 
-    >>> pipeline2.result()
-    [
-        {
-            "app": "app37",
-            "actions": [
-                "cached",
-                "refresh"
-            ]
-        },
-        {
-            "app": "app40",
-            "actions": [
-                "refresh"
-            ]
-        }
-    ]
-
 as you see when you use low-level **Pipeline** class, you should handle **LimitExceedError** by youself.
 LimitExceedError is raise when you use $limit command, and required items is exceed limit count.
-
-Next to do
--------------------------------------------------------------
-- add more examples.
-- make exception more human readable.
-- implement parallel.

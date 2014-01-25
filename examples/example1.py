@@ -37,9 +37,11 @@ pipeline = [
            "app": "$_id.app",
            "action": "$_id.action",
            "count": "$count",
-           "min_elapse": "$min_elapse",
-           "max_elapse": "$max_elapse",
-           "avg_elapse": {"$divide": ["$sum_elapse", "$count"]},
+           "elapse": {
+               "min": "$min_elapse",
+               "max": "$max_elapse",
+               "avg": {"$divide": ["$sum_elapse", "$count"]},
+           },
        },
    },
    {
@@ -53,6 +55,9 @@ pipeline = [
 dataset = [
     {
        "_event": "[2014-01-16 16:13:49,171] DEBUG Collect app:app37 timeline end... refresh, elapse:1.0",
+    },
+    {
+       "_event": "[2014-01-16 16:13:49,171] DEBUG Collect app:app37 timeline end... refresh, elapse:2.0",
     },
     {
        "_event": "[2014-01-16 16:13:50,000] DEBUG Collect app:app37 timeline end... cached, elapse:0.01",

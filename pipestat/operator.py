@@ -129,15 +129,12 @@ class MatchNumberCmpOperator(MatchCompareOperator):
                 raise self.make_error(str(e))
 
     def match(self, document):
-        try:
-            doc_val = float(document.get(self.key))
-            if Value.is_doc_ref_key(self.value):
-                value = float(document.get(self.value[1:]))
-                return self.cmp(doc_val, value)
-            else:
-                return self.cmp(doc_val, self.value)
-        except Exception, e:
-            raise self.make_error(str(e))
+        doc_val = float(document.get(self.key))
+        if Value.is_doc_ref_key(self.value):
+            value = float(document.get(self.value[1:]))
+            return self.cmp(doc_val, value)
+        else:
+            return self.cmp(doc_val, self.value)
 
     def cmp(self, doc_val, value):
         raise NotImplementedError()
@@ -411,7 +408,7 @@ class ProjectDualNumberOperator(ProjectOperator):
         v1 = self.value[0]
         if Value.is_doc_ref_key(v1):
             v1 = document.get(v1[1:])
-        v2 = self.value[0]
+        v2 = self.value[1]
         if Value.is_doc_ref_key(v2):
             v2 = document.get(v2[1:])
         return self.compute(float(v1), float(v2))
