@@ -40,11 +40,12 @@ class OperatorFactory(object):
         else:
             if len(value) == 1:
                 name = value.keys()[0]
-                project_operators = _operators.get("$project", {})
-                if name in project_operators:
-                    return project_operators[name](key, value[name])
-                elif Value.is_operator(name):
-                    raise OperatorError('invalid $project operator key=%s value=%r' % (key, value))
+                if name[0] == "$":
+                    project_operators = _operators.get("$project", {})
+                    if name in project_operators:
+                        return project_operators[name](key, value[name])
+                    elif Value.is_operator(name):
+                        raise OperatorError('invalid $project operator key=%s value=%r' % (key, value))
             if value:
                 return ProjectCombineOperator(key, value)
 
