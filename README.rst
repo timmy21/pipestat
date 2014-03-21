@@ -268,9 +268,15 @@ See this `mongo aggregation $sort
 <http://docs.mongodb.org/manual/reference/operator/aggregation/sort/>`_ for more.
 
 $sort command is identical to mongo aggregation $sort,
-but you should use a list of tuple instead of dict because python dict is unordered! see a example as below:
+not only use dict, you also can use a list of tuple or collections.OrderedDict, for multi-key sort order reason! see a example as below:
 
 .. code:: python
+
+    >>> pipeline = [
+    ...    {
+    ...        "$sort": {"app": 1}
+    ...    },
+    ... ]
 
     >>> pipeline = [
     ...    {
