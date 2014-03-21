@@ -187,16 +187,28 @@ class SortCommand(Command):
 
     def __init__(self, value):
         super(SortCommand, self).__init__(value)
-        if not isinstance(value, collections.Iterable):
+        if isinstance(value, (list, tuple)):
+            try:
+                for k, direction in value:
+                    if not isinstance(k, basestring):
+                        raise ValueError("invalid sort key %r" % k)
+                    if (direction not in [ASCENDING, DESCENDING]):
+                        raise ValueError("invalid sort direction %r" % direction)
+            except Exception, e:
+                raise self.make_error(str(e))
+        elif isinstance(value, (dict, collections.OrderedDict)):
+            try:
+                for k, direction in value.iteritems():
+                    if not isinstance(k, basestring):
+                        raise ValueError("invalid sort key %r" % k)
+                    if (direction not in [ASCENDING, DESCENDING]):
+                        raise ValueError("invalid sort direction %r" % direction)
+
+                self.value = [(k, direction) for k, direction in value.iteritems()]
+            except Exception, e:
+                raise self.make_error(str(e))
+        else:
             raise self.make_error("value is not iterable")
-        try:
-            for k, direction in value:
-                if not isinstance(k, basestring):
-                    raise ValueError("invalid sort key %r" % k)
-                if (direction not in [ASCENDING, DESCENDING]):
-                    raise ValueError("invalid sort direction %r" % direction)
-        except Exception, e:
-            raise self.make_error(str(e))
 
     def feed(self, document):
         insort(self.documents, document, cmp=self.cmp_func)

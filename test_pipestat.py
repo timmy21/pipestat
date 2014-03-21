@@ -453,6 +453,16 @@ class SortCommandTest(unittest.TestCase):
             Document({"app": "app2", "elapse": 3}),
         ])
 
+        cmd = SortCommand({"elapse": -1})
+        cmd.feed(Document({"app": "app2", "elapse": 3}))
+        cmd.feed(Document({"app": "app1", "elapse": 1}))
+        cmd.feed(Document({"app": "app1", "elapse": 4}))
+        self.assertListEqual(cmd.result(), [
+            Document({"app": "app1", "elapse": 4}),
+            Document({"app": "app2", "elapse": 3}),
+            Document({"app": "app1", "elapse": 1}),
+        ])
+
 
 class SkipCommandTest(unittest.TestCase):
 
