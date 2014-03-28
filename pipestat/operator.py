@@ -331,11 +331,16 @@ class ProjectValueOperator(ProjectOperator):
 
     name = "$value"
 
+    def __init__(self, key, value):
+        super(ProjectValueOperator, self).__init__(key, value)
+        if not (Value.is_doc_ref_key(value) or value == 1):
+            raise self.make_error("field path references must be prefixed with a '$'")
+
     def eval(self, document):
         if Value.is_doc_ref_key(self.value):
             return document.get(self.value[1:])
-        else:
-            return self.value
+        elif self.value == 1:
+            return document.get(self.key)
 
 
 class ProjectExtractOperator(ProjectOperator):

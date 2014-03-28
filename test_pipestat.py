@@ -169,19 +169,32 @@ class MatchCommandTest(unittest.TestCase):
 
 class ProjectCommandTest(unittest.TestCase):
 
+    def test_exclude(self):
+        cmd = ProjectCommand({
+            "app": 0,
+        })
+        cmd.feed(Document({"app": "app2", "elapse": 3}))
+        cmd.feed(Document({"app": "app1", "elapse": 1}))
+        cmd.feed(Document({"app": "app1", "elapse": 4}))
+        self.assertListEqual(cmd.result(), [
+            Document({"elapse": 3}),
+            Document({"elapse": 1}),
+            Document({"elapse": 4}),
+        ])
+
     def test_value(self):
         cmd = ProjectCommand({
             "count": 1,
-            "name": "$app",
+            "app": 1,
             "time": {"$value": "$elapse"},
         })
         cmd.feed(Document({"app": "app2", "elapse": 3}))
         cmd.feed(Document({"app": "app1", "elapse": 1}))
         cmd.feed(Document({"app": "app1", "elapse": 4}))
         self.assertListEqual(cmd.result(), [
-            Document({"count": 1, "name": "app2", "time": 3}),
-            Document({"count": 1, "name": "app1", "time": 1}),
-            Document({"count": 1, "name": "app1", "time": 4}),
+            Document({"count": None, "app": "app2", "time": 3}),
+            Document({"count": None, "app": "app1", "time": 1}),
+            Document({"count": None, "app": "app1", "time": 4}),
         ])
 
     def test_extract(self):

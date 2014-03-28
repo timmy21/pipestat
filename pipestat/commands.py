@@ -106,17 +106,29 @@ class ProjectCommand(Command):
 
     def __init__(self, value):
         super(ProjectCommand, self).__init__(value)
-        if not isinstance(value, dict):
+        if not isinstance(value, dict) or not value:
             raise self.make_error("value is invalid")
         operators = []
+        excludes = set()
         for k, v in value.iteritems():
-            operators.append(OperatorFactory.new_project(k, v))
+            if v == 0:
+                excludes.add(k)
+            else:
+                operators.append(OperatorFactory.new_project(k, v))
+        if operators and excludes:
+            raise self.make_error("mix use exclusion and inclusion")
         self.operators = operators
+        self.excludes = excludes
 
     def feed(self, document):
         new_doc = Document()
-        for op in self.operators:
-            new_doc.update(op.project(document))
+        if self.operators:
+            for op in self.operators:
+                new_doc.update(op.project(document))
+        else:
+            for k, v in document.iteritems():
+                if k not in self.excludes:
+                    new_doc[k] = v
         super(ProjectCommand, self).feed(new_doc)
 
 

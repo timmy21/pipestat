@@ -10,12 +10,9 @@ class Document(dict):
         doc = self
         try:
             for part in parts:
-                if part in doc:
-                    doc = doc[part]
-                else:
-                    return default
-        except:
-            raise KeyError('Invalid document key "%s"' % key)
+                doc = doc[part]
+        except Exception:
+            return default
         return copy.deepcopy(doc)
 
     def set(self, key, value):
