@@ -23,3 +23,13 @@ class Document(dict):
                 doc[part] = {}
             doc = doc[part]
         doc[parts[-1]] = copy.deepcopy(value)
+
+    def delete(self, key):
+        parts = key.split(".")
+        doc = self
+        try:
+            for part in parts[:-1]:
+                doc = doc[part]
+            del doc[parts[-1]]
+        except Exception:
+            pass

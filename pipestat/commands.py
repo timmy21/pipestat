@@ -121,14 +121,16 @@ class ProjectCommand(Command):
         self.excludes = excludes
 
     def feed(self, document):
-        new_doc = Document()
         if self.operators:
+            new_doc = Document()
             for op in self.operators:
-                new_doc.update(op.project(document))
+                ret = op.project(document)
+                for k, v in ret.iteritems():
+                    new_doc.set(k, v)
         else:
-            for k, v in document.iteritems():
-                if k not in self.excludes:
-                    new_doc[k] = v
+            new_doc = Document(copy.deepcopy(document))
+            for k in self.excludes:
+                new_doc.delete(k)
         super(ProjectCommand, self).feed(new_doc)
 
 
