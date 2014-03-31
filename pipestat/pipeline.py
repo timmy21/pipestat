@@ -19,7 +19,7 @@ class Pipeline(object):
             prev_cmd = cmd
 
         if not self.cmd:
-            raise CommandError('pipeline not have any command')
+            raise CommandError('the pipeline requires an array of commands')
 
     def feed(self, item):
         self.cmd.feed(Document(item))

@@ -31,7 +31,7 @@ class OperatorFactory(object):
             elif len(value) > 1:
                 return MatchCombineOperator(key, value)
 
-        raise OperatorError('invalid $match operator key=%s value=%r' % (key, value))
+        raise OperatorError("invalid $match operator '%s'" % key)
 
     @staticmethod
     def new_project(key, value):
@@ -47,7 +47,7 @@ class OperatorFactory(object):
             if value:
                 return ProjectCombineOperator(key, value)
 
-        raise OperatorError('invalid $project operator key=%s value=%r' % (key, value))
+        raise OperatorError("invalid $project operator '%s'" % key)
 
     @staticmethod
     def new_group(key, value):
@@ -58,7 +58,7 @@ class OperatorFactory(object):
                 if name in group_operators:
                     return group_operators[name](key, value[name])
 
-        raise OperatorError('invalid $group operator key=%s value=%r' % (key, value))
+        raise OperatorError("invalid $group operator '%s'" % key)
 
     @staticmethod
     def new_expression(key, value):
@@ -70,7 +70,8 @@ class OperatorFactory(object):
                     return project_operators[name](key, value[name])
         if value:
             return ProjectCombineOperator(key, value)
-        raise OperatorError('invalid $expressions operator key=%s value=%r' % (key, value))
+
+        raise OperatorError("invalid $expressions operator '%s'" % key)
 
 
 class OperatorMeta(type):
@@ -90,9 +91,7 @@ class Operator(object):
     __metaclass__ = OperatorMeta
 
     def make_error(self, message):
-        return OperatorError('operator %s:%s key=%s message="%s"' % (
-            self.command, self.name, self.key, message
-        ))
+        return OperatorError(message, self.command, self.name)
 
 
 class MatchOperator(Operator):
@@ -118,8 +117,8 @@ class MatchRegexpOperator(MatchKeyCmpOperator):
         super(MatchRegexpOperator, self).__init__(key, value)
         try:
             self.pat = re.compile(value)
-        except Exception, e:
-            raise self.make_error(str(e))
+        except Exception:
+            raise self.make_error("the $regexp operator requires regular expression")
 
     def match(self, document):
         doc_val = document.get(self.key, default="")
@@ -136,8 +135,8 @@ class MatchNumberCmpOperator(MatchKeyCmpOperator):
         if not Value.is_doc_ref_key(value):
             try:
                 self.value = float(value)
-            except Exception, e:
-                raise self.make_error(str(e))
+            except Exception:
+                raise self.make_error("the %s operator requires key-ref or numeric type" % self.name)
 
     def match(self, document):
         doc_val = float(document.get(self.key))
@@ -217,7 +216,7 @@ class MatchBelongOperator(MatchKeyCmpOperator):
             if isinstance(value, collections.Iterable):
                 super(MatchBelongOperator, self).__init__(key, value)
             else:
-                raise self.make_error("value is not Iterable")
+                raise self.make_error("the %s operator requires key-ref or iterable" % self.name)
 
     def match(self, document):
         doc_val = document.get(self.key)
@@ -254,7 +253,7 @@ class MatchCallOperator(MatchKeyCmpOperator):
     def __init__(self, key, value):
         super(MatchCallOperator, self).__init__(key, value)
         if not callable(value):
-            raise self.make_error("value is not callable")
+            raise self.make_error("the $call operator requires callable")
 
     def match(self, document):
         doc_val = document.get(self.key)
@@ -275,13 +274,10 @@ class MatchLogicOperator(MatchOperator):
                     sub_op_val = sub_op[sub_op_key]
                     sub_ops.append(OperatorFactory.new_match(sub_op_key, sub_op_val))
                 else:
-                    raise self.make_error('sub-opeartor=%r is invalid', sub_op)
+                    raise self.make_error('%s: item must be nested match operator' % self.name)
             self.sub_ops = sub_ops
         else:
-            raise self.make_error('value=%r is not list' % value)
-
-    def make_error(self, message):
-        return OperatorError('operator %s:%s message="%s"' % (self.command, self.name, self.value, message))
+            raise self.make_error('the %s operator requires an array of operand(s)' % self.name)
 
 
 class MatchAndOperator(MatchLogicOperator):
@@ -365,15 +361,15 @@ class ProjectExtractOperator(ProjectOperator):
                     try:
                         self.value[0] = OperatorFactory.new_project(key, value[0])
                     except Exception:
-                        raise self.make_error("first value=%r is not document key or $project command" % value[0])
+                        raise self.make_error("$extract: string must be key-ref or nested operator")
                 else:
-                    raise self.make_error("first value=%r is not document key or $project command" % value[0])
+                    raise self.make_error("$extract: string must be key-ref or nested operator")
             try:
                 self.value[1] = re.compile(value[1])
-            except Exception, e:
-                raise self.make_error(str(e))
+            except Exception:
+                raise self.make_error("$extract: pattern must be regular expression")
         else:
-            raise self.make_error("value=%r is invalid" % value)
+            raise self.make_error("the $extract operator requires an array of 2 operands")
 
     def eval(self, document):
         v = self.value[0]
@@ -404,15 +400,15 @@ class ProjectTimestampOperator(ProjectOperator):
                     try:
                         self.value[0] = OperatorFactory.new_project(key, value[0])
                     except Exception:
-                        raise self.make_error("first value=%r is not document key or $project command" % value[0])
+                        raise self.make_error("$extract: string must be key-ref or nested operator")
                 else:
-                    raise self.make_error("first value=%r is not document key or $project command" % value[0])
+                    raise self.make_error("$extract: string must be key-ref or nested operator")
             try:
                 time.strftime(value[1])
-            except Exception, e:
-                raise self.make_error(str(e))
+            except Exception:
+                raise self.make_error("$extract: format must be string type")
         else:
-            raise self.make_error("value=%r is invalid" % value)
+            raise self.make_error("the $extract operator requires an array of 2 operands")
 
     def eval(self, document):
         v = self.value[0]
@@ -433,14 +429,14 @@ class ProjectDualNumberOperator(ProjectOperator):
                     try:
                         self.value[i] = OperatorFactory.new_project(key, v)
                     except Exception:
-                        raise self.make_error("value=%r is not document key or $project command or number" % v)
+                        raise self.make_error("%s: operand must be key-ref or nested operator or numeric type" % self.name)
                 elif not Value.is_doc_ref_key(v):
                     try:
                         self.value[i] = float(v)
-                    except Exception, e:
-                        raise self.make_error(str(e))
+                    except Exception:
+                        raise self.make_error("%s: operand must be key-ref or nested operator or numeric type" % self.name)
         else:
-            raise self.make_error("value=%r is invalid" % value)
+            raise self.make_error("the %s requires an array of 2 operands" % self.name)
 
     def eval(self, document):
         v1 = self.value[0]
@@ -509,9 +505,9 @@ class ProjectConvertStrOperator(ProjectOperator):
                 try:
                     self.value = OperatorFactory.new_project(key, value)
                 except Exception:
-                    raise self.make_error("first value=%r is not document key or $project command" % value[0])
+                    raise self.make_error("the %s requires key-ref or nested operator" % self.name)
             else:
-                raise self.make_error("first value=%r is not document key or $project command" % value[0])
+                raise self.make_error("the %s requires key-ref or nested operator" % self.name)
 
     def eval (self, document):
         v = self.value
@@ -550,7 +546,7 @@ class ProjectCallOperator(ProjectOperator):
     def __init__(self, key, value):
         super(ProjectCallOperator, self).__init__(key, value)
         if not callable(value):
-            raise self.make_error("value is not callable")
+            raise self.make_error("the $call operator requires callable")
 
     def eval(self, document):
         return self.value(document)
@@ -593,8 +589,8 @@ class GroupSumOperator(GroupOperator):
         if not Value.is_doc_ref_key(value):
             try:
                 self.value = float(value)
-            except Exception, e:
-                raise self.make_error(str(e))
+            except Exception:
+                raise self.make_error("the $sum operator requires key-ref or numeric type")
 
     def group(self, document, acc_val):
         value = self.value
@@ -615,7 +611,7 @@ class GroupRefValueOperator(GroupOperator):
     def __init__(self, key, value):
         super(GroupRefValueOperator, self).__init__(key, value)
         if not Value.is_doc_ref_key(value):
-            raise self.make_error("value=%r is not docuemnt ref-key" % value)
+            raise self.make_error("the %s operator requires key-ref" % self.name)
 
 
 class GroupMinOperator(GroupRefValueOperator):
