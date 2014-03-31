@@ -350,8 +350,14 @@ class ProjectExtractOperator(ProjectOperator):
     def __init__(self, key, value):
         super(ProjectExtractOperator, self).__init__(key, value)
         if isinstance(value, list) and len(value) == 2:
-            if not isinstance(value[0], basestring):
-                raise self.make_error("first value=%r is not string or document key" % value[0])
+            if not Value.is_doc_ref_key(value[0]):
+                if isinstance(value[0], dict) and len(value[0]) == 1:
+                    try:
+                        self.value[0] = OperatorFactory.new_project(key, value[0])
+                    except Exception:
+                        raise self.make_error("first value=%r is not document key or $project command" % value[0])
+                else:
+                    raise self.make_error("first value=%r is not document key or $project command" % value[0])
             try:
                 self.value[1] = re.compile(value[1])
             except Exception, e:
@@ -360,10 +366,13 @@ class ProjectExtractOperator(ProjectOperator):
             raise self.make_error("value=%r is invalid" % value)
 
     def eval(self, document):
-        str_val = self.value[0]
-        if Value.is_doc_ref_key(str_val):
-            str_val = document.get(str_val[1:], default="")
-        m = self.value[1].search(str_val)
+        v = self.value[0]
+        if isinstance(v, ProjectOperator):
+            v = v.eval(document)
+        elif Value.is_doc_ref_key(v):
+            v = document.get(v[1:], default="")
+
+        m = self.value[1].search(v)
         if m:
             if self.key in m.groupdict():
                 return m.groupdict()[self.key]
@@ -380,8 +389,14 @@ class ProjectTimestampOperator(ProjectOperator):
     def __init__(self, key, value):
         super(ProjectTimestampOperator, self).__init__(key, value)
         if isinstance(value, list) and len(value) == 2:
-            if not isinstance(value[0], basestring):
-                raise self.make_error("first value=%r is not string or document key" % value[0])
+            if not Value.is_doc_ref_key(value[0]):
+                if isinstance(value[0], dict) and len(value[0]) == 1:
+                    try:
+                        self.value[0] = OperatorFactory.new_project(key, value[0])
+                    except Exception:
+                        raise self.make_error("first value=%r is not document key or $project command" % value[0])
+                else:
+                    raise self.make_error("first value=%r is not document key or $project command" % value[0])
             try:
                 time.strftime(value[1])
             except Exception, e:
@@ -390,10 +405,12 @@ class ProjectTimestampOperator(ProjectOperator):
             raise self.make_error("value=%r is invalid" % value)
 
     def eval(self, document):
-        str_val = self.value[0]
-        if Value.is_doc_ref_key(str_val):
-            str_val = document.get(str_val[1:], default="")
-        return time.mktime(time.strptime(str_val, self.value[1]))
+        v = self.value[0]
+        if isinstance(v, ProjectOperator):
+            v = v.eval(document)
+        elif Value.is_doc_ref_key(v):
+            v = document.get(v[1:], default="")
+        return time.mktime(time.strptime(v, self.value[1]))
 
 
 class ProjectDualNumberOperator(ProjectOperator):
@@ -402,9 +419,14 @@ class ProjectDualNumberOperator(ProjectOperator):
         super(ProjectDualNumberOperator, self).__init__(key, value)
         if isinstance(value, list) and len(value) == 2:
             for i, v in enumerate(value):
-                if not Value.is_doc_ref_key(v):
+                if isinstance(v, dict) and len(v) == 1:
                     try:
-                        v = float(v)
+                        self.value[i] = OperatorFactory.new_project(key, v)
+                    except Exception:
+                        raise self.make_error("value=%r is not document key or $project command or number" % v)
+                elif not Value.is_doc_ref_key(v):
+                    try:
+                        self.value[i] = float(v)
                     except Exception, e:
                         raise self.make_error(str(e))
         else:
@@ -412,10 +434,14 @@ class ProjectDualNumberOperator(ProjectOperator):
 
     def eval(self, document):
         v1 = self.value[0]
-        if Value.is_doc_ref_key(v1):
+        if isinstance(v1, ProjectOperator):
+            v1 = v1.eval(document)
+        elif Value.is_doc_ref_key(v1):
             v1 = document.get(v1[1:])
         v2 = self.value[1]
-        if Value.is_doc_ref_key(v2):
+        if isinstance(v2, ProjectOperator):
+            v2 = v2.eval(document)
+        elif Value.is_doc_ref_key(v2):
             v2 = document.get(v2[1:])
         return self.compute(float(v1), float(v2))
 
@@ -459,12 +485,20 @@ class ProjectConvertStrOperator(ProjectOperator):
 
     def __init__(self, key, value):
         super(ProjectConvertStrOperator, self).__init__(key, value)
-        if not isinstance(value, basestring):
-            raise self.make_error("first value=%r is not string or document key" % value[0])
+        if not Value.is_doc_ref_key(value):
+            if isinstance(value, dict) and len(value) == 1:
+                try:
+                    self.value = OperatorFactory.new_project(key, value)
+                except Exception:
+                    raise self.make_error("first value=%r is not document key or $project command" % value[0])
+            else:
+                raise self.make_error("first value=%r is not document key or $project command" % value[0])
 
     def eval (self, document):
         v = self.value
-        if Value.is_doc_ref_key(v):
+        if isinstance(v, ProjectOperator):
+            v = v.eval(document)
+        elif Value.is_doc_ref_key(v):
             v = document.get(v[1:])
         return self.convert(v)
 

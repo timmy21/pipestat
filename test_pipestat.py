@@ -327,6 +327,19 @@ class ProjectCommandTest(unittest.TestCase):
             Document({"elapse": {"value": 4, "wait": 3.5}}),
         ])
 
+    def test_nest_project(self):
+        cmd = ProjectCommand({
+            "elapse": {"$multiply": [{"$add": ["$elapse", 3]}, 2]},
+        })
+        cmd.feed(Document({"app": "app2", "elapse": 3}))
+        cmd.feed(Document({"app": "app1", "elapse": 1}))
+        cmd.feed(Document({"app": "app1", "elapse": 4}))
+        self.assertListEqual(cmd.result(), [
+            Document({"elapse": 12}),
+            Document({"elapse": 8}),
+            Document({"elapse": 14}),
+        ])
+
 
 class GroupCommandTest(unittest.TestCase):
 

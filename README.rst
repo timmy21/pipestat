@@ -205,7 +205,7 @@ $call operator used for advance purpose if all above cannot satisfy you, use lik
     ...    },
     ... ]
 
-pipestat $project command **not support nest operator** like below:
+pipestat $project command **support nest operator** like below:
 
 .. code:: python
 
@@ -215,20 +215,6 @@ pipestat $project command **not support nest operator** like below:
     ...             "traffic": {"$divide": [{"$multiply": ["$traffic", 8]}, 1024]}
     ...         }
     ...     }
-    ... ]
-
-so if you want complex operator, please use **$call** operator. instead of use like above, you should do it like below:
-
-.. code:: python
-
-    >>> bytes_kbps = lambda x: x["traffic"] * 8.0 / 1024
-
-    >>> pipeline = [
-    ...    {
-    ...        "$project": {
-    ...            "traffic": {"$call": bytes_kbps},
-    ...        },
-    ...    },
     ... ]
 
 $group
