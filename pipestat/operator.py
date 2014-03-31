@@ -40,12 +40,10 @@ class OperatorFactory(object):
         else:
             if len(value) == 1:
                 name = value.keys()[0]
-                if name[0] == "$":
+                if Value.is_operator(name):
                     project_operators = _operators.get("$project", {})
                     if name in project_operators:
                         return project_operators[name](key, value[name])
-                    elif Value.is_operator(name):
-                        raise OperatorError('invalid $project operator key=%s value=%r' % (key, value))
             if value:
                 return ProjectCombineOperator(key, value)
 
@@ -61,6 +59,18 @@ class OperatorFactory(object):
                     return group_operators[name](key, value[name])
 
         raise OperatorError('invalid $group operator key=%s value=%r' % (key, value))
+
+    @staticmethod
+    def new_expression(key, value):
+        if len(value) == 1:
+            name = value.keys()[0]
+            if Value.is_operator(name):
+                project_operators = _operators.get("$project", {})
+                if name in project_operators:
+                    return project_operators[name](key, value[name])
+        if value:
+            return ProjectCombineOperator(key, value)
+        raise OperatorError('invalid $expressions operator key=%s value=%r' % (key, value))
 
 
 class OperatorMeta(type):

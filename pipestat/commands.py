@@ -5,7 +5,7 @@ import copy
 import collections
 from pipestat.bsort import insort
 from pipestat.errors import CommandError, LimitCompleted
-from pipestat.operator import OperatorFactory
+from pipestat.operator import OperatorFactory, ProjectOperator
 from pipestat.models import Document
 from pipestat.utils import Value
 from pipestat.constants import ASCENDING, DESCENDING
@@ -150,10 +150,11 @@ class GroupCommand(Command):
                 continue
             operators[k] = OperatorFactory.new_group(k, v)
         self.operators = operators
+        self._id = self._valid_id(value["_id"])
         self._id_docs = {}
 
     def feed(self, document):
-        ids = self.gen_id(document, self.value["_id"])
+        ids = self.gen_id(document)
         gid = json.dumps({"_id": ids})
         acc_vals = self._id_docs.setdefault(gid, {})
         for k, op in self.operators.iteritems():
@@ -178,21 +179,19 @@ class GroupCommand(Command):
             rets.append(Document(dict(k, **v)))
         return rets
 
-    def gen_id(self, document, id_v):
-        if Value.is_doc_ref_key(id_v):
-            return document.get(id_v[1:])
-        elif isinstance(id_v, dict):
-            ids = {}
-            for k, v in id_v.iteritems():
-                ids[k] = self.gen_id(document, v)
-            return ids
-        elif isinstance(id_v, collections.Iterable):
-            ids = []
-            for v in id_v:
-                ids.append(self.gen_id(document, v))
-            return ids
+    def _valid_id(self, id_v):
+        if isinstance(id_v, dict):
+            return OperatorFactory.new_expression("_id", id_v)
         else:
             return id_v
+
+    def gen_id(self, document):
+        if isinstance(self._id, ProjectOperator):
+            return self._id.eval(document)
+        elif Value.is_doc_ref_key(self._id):
+            return document.get(self._id[1:])
+        else:
+            return self._id
 
 
 class SortCommand(Command):
