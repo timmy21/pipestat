@@ -185,7 +185,7 @@ class GroupCommand(Command):
 
     def gen_id(self, document):
         if isinstance(self._id, ProjectOperator):
-            return self._id.eval(document)
+            return self._id.project(document)["_id"]
         elif Value.is_doc_ref_key(self._id):
             return document.get(self._id[1:])
         else:

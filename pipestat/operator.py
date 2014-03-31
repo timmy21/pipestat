@@ -100,6 +100,12 @@ class MatchOperator(Operator):
     command = "$match"
 
     def match(self, document):
+        try:
+            return self.eval(document)
+        except Exception, e:
+            raise self.make_error("%s: runtime error '%s'" % (self.name, str(e)))
+
+    def eval(self, document):
         raise NotImplemented()
 
 
@@ -121,7 +127,7 @@ class MatchRegexpOperator(MatchKeyCmpOperator):
         except Exception:
             raise self.make_error("the $regexp operator requires regular expression")
 
-    def match(self, document):
+    def eval(self, document):
         doc_val = document.get(self.key, default="")
         m = self.pat.search(doc_val)
         if m:
@@ -139,7 +145,7 @@ class MatchNumberCmpOperator(MatchKeyCmpOperator):
             except Exception:
                 raise self.make_error("the %s operator requires key-ref or numeric type" % self.name)
 
-    def match(self, document):
+    def eval(self, document):
         doc_val = float(document.get(self.key))
         if Value.is_doc_ref_key(self.value):
             value = float(document.get(self.value[1:]))
@@ -187,7 +193,7 @@ class MatchEqualOperator(MatchKeyCmpOperator):
 
     name = "$eq"
 
-    def match(self, document):
+    def eval(self, document):
         doc_val = document.get(self.key)
         if Value.is_doc_ref_key(self.value):
             value = document.get(self.value[1:])
@@ -200,7 +206,7 @@ class MatchNotEqualOperator(MatchKeyCmpOperator):
 
     name = "$ne"
 
-    def match(self, document):
+    def eval(self, document):
         doc_val = document.get(self.key)
         if Value.is_doc_ref_key(self.value):
             value = document.get(self.value[1:])
@@ -219,7 +225,7 @@ class MatchBelongOperator(MatchKeyCmpOperator):
             else:
                 raise self.make_error("the %s operator requires key-ref or iterable" % self.name)
 
-    def match(self, document):
+    def eval(self, document):
         doc_val = document.get(self.key)
         if Value.is_doc_ref_key(self.value):
             value = document.get(self.value[1:])
@@ -256,7 +262,7 @@ class MatchCallOperator(MatchKeyCmpOperator):
         if not callable(value):
             raise self.make_error("the $call operator requires callable")
 
-    def match(self, document):
+    def eval(self, document):
         doc_val = document.get(self.key)
         if self.value(doc_val, document):
             return True
@@ -285,7 +291,7 @@ class MatchAndOperator(MatchLogicOperator):
 
     name = "$and"
 
-    def match(self, document):
+    def eval(self, document):
         for sub_op in self.sub_ops:
             if not sub_op.match(document):
                 return False
@@ -296,7 +302,7 @@ class MatchOrOperator(MatchLogicOperator):
 
     name = "$or"
 
-    def match(self, document):
+    def eval(self, document):
         for sub_op in self.sub_ops:
             if sub_op.match(document):
                 return True
@@ -312,7 +318,7 @@ class MatchCombineOperator(MatchKeyCmpOperator):
             combined_ops.append(OperatorFactory.new_match(key, {k: v}))
         self.combined_ops = combined_ops
 
-    def match(self, document):
+    def eval(self, document):
         for combine_op in self.combined_ops:
             if not combine_op.match(document):
                 return False
@@ -691,6 +697,12 @@ class GroupOperator(Operator):
         self.value = value
 
     def group(self, document, acc_val):
+        try:
+            return self.eval(document, acc_val)
+        except Exception, e:
+            raise self.make_error("%s: runtime error '%s'" % (self.name, str(e)))
+
+    def eval(self, document, acc_val):
         raise NotImplementedError()
 
 
@@ -706,7 +718,7 @@ class GroupSumOperator(GroupOperator):
             except Exception:
                 raise self.make_error("the $sum operator requires key-ref or numeric type")
 
-    def group(self, document, acc_val):
+    def eval(self, document, acc_val):
         value = self.value
         if Value.is_doc_ref_key(value):
             value = document.get(value[1:])
@@ -732,7 +744,7 @@ class GroupMinOperator(GroupRefValueOperator):
 
     name = "$min"
 
-    def group(self, document, acc_val):
+    def eval(self, document, acc_val):
         value = document.get(self.value[1:])
         if value is not None:
             value = float(value)
@@ -748,7 +760,7 @@ class GroupMaxOperator(GroupRefValueOperator):
 
     name = "$max"
 
-    def group(self, document, acc_val):
+    def eval(self, document, acc_val):
         value = document.get(self.value[1:])
         if value is not None:
             value = float(value)
@@ -764,7 +776,7 @@ class GroupFirstOperator(GroupRefValueOperator):
 
     name = "$first"
 
-    def group(self, document, acc_val):
+    def eval(self, document, acc_val):
         if acc_val is not None:
             return acc_val
         return document.get(self.value[1:])
@@ -774,7 +786,7 @@ class GroupLastOperator(GroupRefValueOperator):
 
     name = "$last"
 
-    def group(self, document, acc_val):
+    def eval(self, document, acc_val):
         value = document.get(self.value[1:])
         if value is not None:
             return value
@@ -785,7 +797,7 @@ class GroupAddToSetOperator(GroupRefValueOperator):
 
     name = "$addToSet"
 
-    def group(self, document, acc_val):
+    def eval(self, document, acc_val):
         if acc_val is None:
             acc_val = []
         value = document.get(self.value[1:])
@@ -798,7 +810,7 @@ class GroupPushOperator(GroupRefValueOperator):
 
     name = "$push"
 
-    def group(self, document, acc_val):
+    def eval(self, document, acc_val):
         if acc_val is None:
             acc_val = []
         value = document.get(self.value[1:])
@@ -811,7 +823,7 @@ class GroupConcatToSetOperator(GroupRefValueOperator):
 
     name = "$concatToSet"
 
-    def group(self, document, acc_val):
+    def eval(self, document, acc_val):
         if acc_val is None:
             acc_val = []
         value = document.get(self.value[1:])
@@ -824,7 +836,7 @@ class GroupConcatToListOperator(GroupRefValueOperator):
 
     name = "$concatToList"
 
-    def group(self, document, acc_val):
+    def eval(self, document, acc_val):
         if acc_val is None:
             acc_val = []
         value = document.get(self.value[1:])
