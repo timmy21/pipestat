@@ -1,6 +1,7 @@
 # -*- coding: utf-8 -*-
 
 import unittest
+import datetime
 from pipestat.models import Document
 from pipestat.commands import (
     MatchCommand, ProjectCommand, GroupCommand,
@@ -309,6 +310,87 @@ class ProjectCommandTest(unittest.TestCase):
             Document({"app": "APP2"}),
             Document({"app": "APP1"}),
             Document({"app": "APP1"}),
+        ])
+
+    def test_dayOfYear(self):
+        cmd = ProjectCommand({
+            "dy": {"$dayOfYear": "$ts"}
+        })
+        cmd.feed(Document({"ts": datetime.datetime(2014, 3, 31, 12, 30, 0)}))
+        self.assertListEqual(cmd.result(), [
+            {"dy": 89}
+        ])
+
+    def test_dayOfMonth(self):
+        cmd = ProjectCommand({
+            "dm": {"$dayOfMonth": "$ts"}
+        })
+        cmd.feed(Document({"ts": datetime.datetime(2014, 3, 31, 12, 30, 0)}))
+        self.assertListEqual(cmd.result(), [
+            {"dm": 31}
+        ])
+
+    def test_dayOfWeek(self):
+        cmd = ProjectCommand({
+            "dw": {"$dayOfWeek": "$ts"}
+        })
+        cmd.feed(Document({"ts": datetime.datetime(2014, 3, 31, 12, 30, 0)}))
+        self.assertListEqual(cmd.result(), [
+            {"dw": 1}
+        ])
+
+    def test_year(self):
+        cmd = ProjectCommand({
+            "y": {"$year": "$ts"}
+        })
+        cmd.feed(Document({"ts": datetime.datetime(2014, 3, 31, 12, 30, 0)}))
+        self.assertListEqual(cmd.result(), [
+            {"y": 2014}
+        ])
+
+    def test_month(self):
+        cmd = ProjectCommand({
+            "m": {"$month": "$ts"}
+        })
+        cmd.feed(Document({"ts": datetime.datetime(2014, 3, 31, 12, 30, 0)}))
+        self.assertListEqual(cmd.result(), [
+            {"m": 3}
+        ])
+
+    def test_hour(self):
+        cmd = ProjectCommand({
+            "h": {"$hour": "$ts"}
+        })
+        cmd.feed(Document({"ts": datetime.datetime(2014, 3, 31, 12, 30, 0)}))
+        self.assertListEqual(cmd.result(), [
+            {"h": 12}
+        ])
+
+    def test_minute(self):
+        cmd = ProjectCommand({
+            "m": {"$minute": "$ts"}
+        })
+        cmd.feed(Document({"ts": datetime.datetime(2014, 3, 31, 12, 30, 0)}))
+        self.assertListEqual(cmd.result(), [
+            {"m": 30}
+        ])
+
+    def test_second(self):
+        cmd = ProjectCommand({
+            "s": {"$second": "$ts"}
+        })
+        cmd.feed(Document({"ts": datetime.datetime(2014, 3, 31, 12, 30, 0)}))
+        self.assertListEqual(cmd.result(), [
+            {"s": 0}
+        ])
+
+    def test_millisecond(self):
+        cmd = ProjectCommand({
+            "m": {"$millisecond": "$ts"}
+        })
+        cmd.feed(Document({"ts": datetime.datetime(2014, 3, 31, 12, 30, 0)}))
+        self.assertListEqual(cmd.result(), [
+            {"m": 0}
         ])
 
     def test_call(self):

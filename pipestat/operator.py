@@ -6,6 +6,7 @@ import string
 import collections
 from pipestat.errors import OperatorError
 from pipestat.utils import Value
+from datetime import datetime, date
 
 
 _operators = {}
@@ -327,7 +328,10 @@ class ProjectOperator(Operator):
         self.value = value
 
     def project(self, document):
-        return {self.key: self.eval(document)}
+        try:
+            return {self.key: self.eval(document)}
+        except Exception, e:
+            raise self.make_error("%s: runtime error '%s'" % (self.name, str(e)))
 
     def eval(self, document):
         raise NotImplemented()
@@ -537,6 +541,116 @@ class ProjectToUpperOperator(ProjectConvertStrOperator):
     def convert(self, v):
         if v is not None:
             return string.upper(v)
+
+
+class ProjectDateOperator(ProjectOperator):
+
+    def __init__(self, key, value):
+        super(ProjectDateOperator, self).__init__(key, value)
+        if not Value.is_doc_ref_key(value):
+            if isinstance(value, dict) and len(value) == 1:
+                try:
+                    self.value = OperatorFactory.new_project(key, value)
+                except Exception:
+                    raise self.make_error("the %s requires key-ref or nested operator" % self.name)
+            else:
+                raise self.make_error("the %s requires key-ref or nested operator" % self.name)
+
+    def _make_date(self, document):
+        v = self.value
+        if isinstance(self.value, ProjectOperator):
+            v = self.value.eval(document)
+        elif Value.is_doc_ref_key(self.value):
+            v = document.get(self.value[1:])
+
+        if isinstance(v, datetime):
+            return v
+        elif isinstance(v, date):
+            return datetime(v.year, v.month, v.day)
+        else:
+            return datetime.fromtimestamp(float(v))
+
+
+class ProjectDayOfYearOperator(ProjectDateOperator):
+
+    name = "$dayOfYear"
+
+    def eval(self, document):
+        d1 = self._make_date(document)
+        d2 = datetime(d1.year, 1, 1)
+        return (d1-d2).days
+
+
+class ProjectDayOfMonthOperator(ProjectDateOperator):
+
+    name = "$dayOfMonth"
+
+    def eval(self, document):
+        d = self._make_date(document)
+        return d.day
+
+
+class ProjectDayOfWeekOperator(ProjectDateOperator):
+
+    name = "$dayOfWeek"
+
+    def eval(self, document):
+        d = self._make_date(document)
+        return d.weekday() + 1
+
+
+class ProjectYearOperator(ProjectDateOperator):
+
+    name = "$year"
+
+    def eval(self, document):
+        d = self._make_date(document)
+        return d.year
+
+
+class ProjectMonthOperator(ProjectDateOperator):
+
+    name = "$month"
+
+    def eval(self, document):
+        d = self._make_date(document)
+        return d.month
+
+
+class ProjectHourOperator(ProjectDateOperator):
+
+    name = "$hour"
+
+    def eval(self, document):
+        d = self._make_date(document)
+        return d.hour
+
+
+class ProjectMinuteOperator(ProjectDateOperator):
+
+    name = "$minute"
+
+    def eval(self, document):
+        d = self._make_date(document)
+        return d.minute
+
+
+class ProjectSecondOperator(ProjectDateOperator):
+
+    name = "$second"
+
+    def eval(self, document):
+        d = self._make_date(document)
+        return d.second
+
+
+class ProjectMillisecondOperator(ProjectDateOperator):
+
+    name = "$millisecond"
+
+    def eval(self, document):
+        d = self._make_date(document)
+        return d.microsecond // 1000
 
 
 class ProjectCallOperator(ProjectOperator):
