@@ -481,6 +481,15 @@ class ProjectDivideOperator(ProjectDualNumberOperator):
         return v1 / v2
 
 
+class ProjectModOperator(ProjectDualNumberOperator):
+
+    name = "$mod"
+
+    def compute(self, v1, v2):
+        return v1 % v2
+
+
+
 class ProjectConvertStrOperator(ProjectOperator):
 
     def __init__(self, key, value):

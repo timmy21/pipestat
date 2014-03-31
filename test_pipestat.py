@@ -272,6 +272,19 @@ class ProjectCommandTest(unittest.TestCase):
             Document({"elapse": 2}),
         ])
 
+    def test_mod(self):
+        cmd = ProjectCommand({
+            "elapse": {"$mod": ["$elapse", 2]},
+        })
+        cmd.feed(Document({"app": "app2", "elapse": 3}))
+        cmd.feed(Document({"app": "app1", "elapse": 1}))
+        cmd.feed(Document({"app": "app1", "elapse": 4}))
+        self.assertListEqual(cmd.result(), [
+            Document({"elapse": 1}),
+            Document({"elapse": 1}),
+            Document({"elapse": 0}),
+        ])
+
     def test_toLower(self):
         cmd = ProjectCommand({
             "app": {"$toLower": "$app"},
