@@ -4,7 +4,7 @@ import json
 import copy
 import collections
 from pipestat.bsort import insort
-from pipestat.errors import CommandError, LimitCompleted
+from pipestat.errors import PipelineError, CommandError, LimitCompleted
 from pipestat.operator import OperatorFactory, ProjectOperator
 from pipestat.models import Document
 from pipestat.utils import Value
@@ -31,13 +31,13 @@ class CommandFactory(object):
             return True
 
         if not is_valid():
-            raise CommandError("invalid command '%s'" % value)
+            raise PipelineError("invalid command '%s'" % value)
         cmd_k = value.keys()[0]
         cmd_v = value[cmd_k]
         if cmd_k in _commands:
             return _commands[cmd_k](cmd_v)
         else:
-            raise CommandError("invalid command '%s'" % value)
+            raise PipelineError("invalid command '%s'" % value)
 
 
 class CommandMeta(type):

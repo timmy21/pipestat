@@ -1,13 +1,15 @@
 # -*- coding: utf-8 -*-
 
+import copy
 from pipestat.commands import CommandFactory
-from pipestat.errors import CommandError
+from pipestat.errors import PipelineError
 from pipestat.models import Document
 
 
 class Pipeline(object):
 
     def __init__(self, pipeline):
+        pipeline = copy.deepcopy(pipeline)
         self.cmd = None
         prev_cmd = None
         for p in pipeline:
@@ -19,7 +21,7 @@ class Pipeline(object):
             prev_cmd = cmd
 
         if not self.cmd:
-            raise CommandError('the pipeline requires an array of commands')
+            raise PipelineError('the pipeline requires an array of commands')
 
     def feed(self, item):
         self.cmd.feed(Document(item))

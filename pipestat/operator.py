@@ -4,7 +4,7 @@ import re
 import time
 import string
 import collections
-from pipestat.errors import OperatorError
+from pipestat.errors import OperatorError, CommandError
 from pipestat.utils import Value
 from datetime import datetime, date
 
@@ -32,7 +32,7 @@ class OperatorFactory(object):
             elif len(value) > 1:
                 return MatchCombineOperator(key, value)
 
-        raise OperatorError("invalid $match operator '%s'" % key)
+        raise CommandError("the $match command with invalid operator for '%s'" % key, "$match")
 
     @staticmethod
     def new_project(key, value):
@@ -48,7 +48,7 @@ class OperatorFactory(object):
             if value:
                 return ProjectCombineOperator(key, value)
 
-        raise OperatorError("invalid $project operator '%s'" % key)
+        raise CommandError("the $project command with invalid operator for '%s'" % key, "$project")
 
     @staticmethod
     def new_group(key, value):
@@ -62,7 +62,7 @@ class OperatorFactory(object):
             if value:
                 return GroupCombineOperator(key, value)
 
-        raise OperatorError("invalid $group operator '%s'" % key)
+        raise CommandError("the $group command with invalid operator for '%s'" % key, "$group")
 
     @staticmethod
     def new_expression(key, value):
@@ -75,7 +75,7 @@ class OperatorFactory(object):
         if value:
             return ProjectCombineOperator(key, value)
 
-        raise OperatorError("invalid $expressions operator '%s'" % key)
+        raise CommandError("the $group with invalid expressions for '%s'" % key, "$group")
 
 
 class OperatorMeta(type):

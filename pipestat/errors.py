@@ -4,6 +4,10 @@ class PipeStatError(Exception):
     """pipestat base error"""
 
 
+class PipelineError(PipeStatError):
+    """pipeline error"""
+
+
 class OperatorError(PipeStatError):
     """command operator error"""
 
