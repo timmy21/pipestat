@@ -59,6 +59,9 @@ class OperatorFactory(object):
                 if name in group_operators:
                     return group_operators[name](key, value[name])
 
+            if value:
+                return GroupCombineOperator(key, value)
+
         raise OperatorError("invalid $group operator '%s'" % key)
 
     @staticmethod
@@ -725,8 +728,8 @@ class GroupSumOperator(GroupOperator):
             if value is not None:
                 value = float(value)
         if acc_val is None:
-            return value
-        elif value is not None:
+            acc_val = 0
+        if value is not None:
             return acc_val + value
         else:
             return acc_val
@@ -843,3 +846,20 @@ class GroupConcatToListOperator(GroupRefValueOperator):
         if value is not None:
             return acc_val + list(value)
         return acc_val
+
+
+class GroupCombineOperator(GroupOperator):
+
+    def __init__(self, key, value):
+        super(GroupCombineOperator, self).__init__(key, value)
+        combined_ops = {}
+        for k, v in value.iteritems():
+            combined_ops[k] = OperatorFactory.new_group(k, v)
+        self.combined_ops = combined_ops
+
+    def eval(self, document, acc_val):
+        acc_val = acc_val or {}
+        pv = {}
+        for k, combine_op in self.combined_ops.iteritems():
+            pv[k] = combine_op.group(document, acc_val.get(k))
+        return pv
