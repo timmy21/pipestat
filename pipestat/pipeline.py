@@ -21,7 +21,7 @@ class Pipeline(object):
             prev_cmd = cmd
 
         if not self.cmd:
-            raise PipelineError('the pipeline requires an array of commands')
+            raise PipelineError('pipeline specification must be an array of at least one command')
 
     def feed(self, item):
         self.cmd.feed(Document(item))

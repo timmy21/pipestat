@@ -30,10 +30,10 @@ class OperatorFactory(object):
                 match_operators = _operators.get("$match", {})
                 if name in match_operators:
                     return match_operators[name](key, value[name])
-            elif len(value) > 1:
+                else:
+                    raise CommandError("unknow $match operator '%s'" % name, "$match")
+            else:
                 return MatchCombineOperator(key, value)
-
-        raise CommandError("invalid operator for '%s'" % key, "$match")
 
     @staticmethod
     def new_project(key, value):
@@ -42,41 +42,31 @@ class OperatorFactory(object):
         else:
             if len(value) == 1:
                 name = value.keys()[0]
+                project_operators = _operators.get("$project", {})
                 if Value.is_operator(name):
-                    project_operators = _operators.get("$project", {})
                     if name in project_operators:
                         return project_operators[name](key, value[name])
-            if value:
-                return ProjectCombineOperator(key, value)
-
-        raise CommandError("invalid operator for '%s'" % key, "$project")
+                    else:
+                        raise CommandError("unknow $project operator '%s'" % name, "$project")
+            return ProjectCombineOperator(key, value)
 
     @staticmethod
     def new_group(key, value):
-        if isinstance(value, dict):
-            if len(value) == 1:
-                name = value.keys()[0]
-                group_operators = _operators.get("$group", {})
-                if name in group_operators:
-                    return group_operators[name](key, value[name])
+        if not isinstance(value, dict):
+            raise CommandError("the $group aggregate field '%s' must be defined as an expression inside an object" % key)
 
-            if value:
-                return GroupCombineOperator(key, value)
-
-        raise CommandError("invalid operator for '%s'" % key, "$group")
-
-    @staticmethod
-    def new_expression(key, value):
         if len(value) == 1:
             name = value.keys()[0]
+            group_operators = _operators.get("$group", {})
             if Value.is_operator(name):
-                project_operators = _operators.get("$project", {})
-                if name in project_operators:
-                    return project_operators[name](key, value[name])
+                if name in group_operators:
+                    return group_operators[name](key, value[name])
+                else:
+                    raise CommandError("unknow $group operator '%s'" % name, "$group")
         if value:
-            return ProjectCombineOperator(key, value)
-
-        raise CommandError("the $group with invalid expressions for '%s'" % key, "$group")
+            return GroupCombineOperator(key, value)
+        else:
+            raise CommandError("the computed aggregate '%s' must specify exactly one operator" % key)
 
 
 class OperatorMeta(type):
@@ -106,8 +96,10 @@ class MatchOperator(Operator):
     def match(self, document):
         try:
             return self.eval(document)
+        except OperatorError:
+            raise
         except Exception, e:
-            raise self.make_error("%s: runtime error '%s'" % (self.name, str(e)))
+            raise self.make_error("%s runtime error: %s" % (self.name, str(e)))
 
     def eval(self, document):
         raise NotImplemented()
@@ -147,7 +139,7 @@ class MatchNumberCmpOperator(MatchKeyCmpOperator):
             try:
                 self.value = float(value)
             except Exception:
-                raise self.make_error("the %s operator requires key-ref or numeric type" % self.name)
+                raise self.make_error("the %s operator requires numeric type" % self.name)
 
     def eval(self, document):
         doc_val = float(document.get(self.key))
@@ -227,7 +219,7 @@ class MatchBelongOperator(MatchKeyCmpOperator):
             if isinstance(value, collections.Iterable):
                 super(MatchBelongOperator, self).__init__(key, value)
             else:
-                raise self.make_error("the %s operator requires key-ref or iterable" % self.name)
+                raise self.make_error("the %s operator requires iterable" % self.name)
 
     def eval(self, document):
         doc_val = document.get(self.key)
@@ -285,10 +277,10 @@ class MatchLogicOperator(MatchOperator):
                     sub_op_val = sub_op[sub_op_key]
                     sub_ops.append(OperatorFactory.new_match(sub_op_key, sub_op_val))
                 else:
-                    raise self.make_error('%s: item must be nested match operator' % self.name)
+                    raise self.make_error('%s match element must be object' % self.name)
             self.sub_ops = sub_ops
         else:
-            raise self.make_error('the %s operator requires an array of operand(s)' % self.name)
+            raise self.make_error('the %s operator requires a nonempty list' % self.name)
 
 
 class MatchAndOperator(MatchLogicOperator):
@@ -343,7 +335,7 @@ class ProjectOperator(Operator):
         except OperatorError:
             raise
         except Exception, e:
-            raise self.make_error("%s: runtime error '%s'" % (self.name, str(e)))
+            raise self.make_error("%s runtime error: %s" % (self.name, str(e)))
 
     def eval(self, document):
         raise NotImplemented()
@@ -373,16 +365,19 @@ class ProjectExtractOperator(ProjectOperator):
         super(ProjectExtractOperator, self).__init__(key, value)
         if isinstance(value, list) and len(value) == 2:
             if not Value.is_doc_ref_key(value[0]):
-                if isinstance(value[0], dict) and len(value[0]) == 1:
-                    self.value[0] = OperatorFactory.new_project(key, value[0])
+                if isinstance(value[0], dict):
+                    if len(value[0]) == 1:
+                        self.value[0] = OperatorFactory.new_project(key, value[0])
+                    else:
+                        raise self.make_error("$extract parameter operator must contain exactly one field")
                 else:
-                    raise self.make_error("$extract: string must be key-ref or nested operator")
+                    raise self.make_error("$extract field path references must be prefixed with a '$'")
             try:
                 self.value[1] = re.compile(value[1])
             except Exception:
-                raise self.make_error("$extract: pattern must be regular expression")
+                raise self.make_error("$extract pattern must be regular expression")
         else:
-            raise self.make_error("the $extract operator requires an array of 2 operands")
+            raise self.make_error("the $extract operator requires an array of two elements")
 
     def eval(self, document):
         v = self.value[0]
@@ -409,16 +404,19 @@ class ProjectTimestampOperator(ProjectOperator):
         super(ProjectTimestampOperator, self).__init__(key, value)
         if isinstance(value, list) and len(value) == 2:
             if not Value.is_doc_ref_key(value[0]):
-                if isinstance(value[0], dict) and len(value[0]) == 1:
-                    self.value[0] = OperatorFactory.new_project(key, value[0])
+                if isinstance(value[0], dict):
+                    if len(value[0]) == 1:
+                        self.value[0] = OperatorFactory.new_project(key, value[0])
+                    else:
+                        raise self.make_error("$timestamp parameter operator must contain exactly one field")
                 else:
-                    raise self.make_error("$extract: string must be key-ref or nested operator")
+                    raise self.make_error("$timestamp field path references must be prefixed with a '$'")
             try:
                 time.strftime(value[1])
             except Exception:
-                raise self.make_error("$extract: format must be string type")
+                raise self.make_error("$timestamp format must be string type")
         else:
-            raise self.make_error("the $extract operator requires an array of 2 operands")
+            raise self.make_error("the $timestamp operator requires an array of two elements")
 
     def eval(self, document):
         v = self.value[0]
@@ -436,15 +434,18 @@ class ProjectDualNumberOperator(ProjectOperator):
         if isinstance(value, list) and len(value) == 2:
             for i, v in enumerate(value):
                 if not Value.is_doc_ref_key(v):
-                    if isinstance(v, dict) and len(v) == 1:
-                        self.value[i] = OperatorFactory.new_project(key, v)
+                    if isinstance(v, dict):
+                        if len(v) == 1:
+                            self.value[i] = OperatorFactory.new_project(key, v)
+                        else:
+                            raise self.make_error("%s parameter operator must contain exactly one field" % self.name)
                     else:
                         try:
                             self.value[i] = float(v)
                         except Exception:
-                            raise self.make_error("%s: operand must be key-ref or nested operator or numeric type" % self.name)
+                            raise self.make_error("%s element must be numeric type" % self.name)
         else:
-            raise self.make_error("the %s requires an array of 2 operands" % self.name)
+            raise self.make_error("the %s operator requires an array of two elements" % self.name)
 
     def eval(self, document):
         v1 = self.value[0]
@@ -509,10 +510,13 @@ class ProjectConvertStrOperator(ProjectOperator):
     def __init__(self, key, value):
         super(ProjectConvertStrOperator, self).__init__(key, value)
         if not Value.is_doc_ref_key(value):
-            if isinstance(value, dict) and len(value) == 1:
-                self.value = OperatorFactory.new_project(key, value)
+            if isinstance(value, dict):
+                if len(value) == 1:
+                    self.value = OperatorFactory.new_project(key, value)
+                else:
+                    raise self.make_error("%s parameter operator must contain exactly one field" % self.name)
             else:
-                raise self.make_error("the %s requires key-ref or nested operator" % self.name)
+                raise self.make_error("%s field path references must be prefixed with a '$'" % self.name)
 
     def eval (self, document):
         v = self.value
@@ -553,12 +557,15 @@ class ProjectConcatOperator(ProjectOperator):
         if isinstance(value, list) and len(value) > 2:
             for i, item in enumerate(value):
                 if not isinstance(item, basestring):
-                    if isinstance(item, dict) and len(item) == 1:
-                        self.value[i] = OperatorFactory.new_project(key, item)
+                    if isinstance(item, dict):
+                        if len(item) == 1:
+                            self.value[i] = OperatorFactory.new_project(key, item)
+                        else:
+                            raise self.make_error("$concat parameter operator must contain exactly one field")
                     else:
-                        raise self.make_error("the $concat requires strings or key-ref or nested operator")
+                        raise self.make_error("$concat field path references must be prefixed with a '$'")
         else:
-            raise self.make_error("the $concat operator requires an array of at least 2 operands")
+            raise self.make_error("the $concat operator requires an array of at least two elements")
 
     def eval(self, document):
         rets = []
@@ -572,7 +579,7 @@ class ProjectConcatOperator(ProjectOperator):
             if rv is None:
                 return None
             elif not isinstance(rv, basestring):
-                raise self.make_error("the $concat operator only supports strings")
+                raise self.make_error("$concat runtime error: only supports strings")
             else:
                 rets.append(rv)
         return "".join(rets)
@@ -584,10 +591,13 @@ class ProjectDateOperator(ProjectOperator):
     def __init__(self, key, value):
         super(ProjectDateOperator, self).__init__(key, value)
         if not Value.is_doc_ref_key(value):
-            if isinstance(value, dict) and len(value) == 1:
-                self.value = OperatorFactory.new_project(key, value)
+            if isinstance(value, dict):
+                if len(value) == 1:
+                    self.value = OperatorFactory.new_project(key, value)
+                else:
+                    raise self.make_error("%s parameter operator must contain exactly one field" % self.name)
             else:
-                raise self.make_error("the %s requires key-ref or nested operator" % self.name)
+                raise self.make_error("%s field path references must be prefixed with a '$'" % self.name)
 
     def _make_date(self, document):
         v = self.value
@@ -727,7 +737,7 @@ class GroupOperator(Operator):
         try:
             return self.eval(document, acc_val)
         except Exception, e:
-            raise self.make_error("%s: runtime error '%s'" % (self.name, str(e)))
+            raise self.make_error("%s runtime error: %s" % (self.name, str(e)))
 
     def eval(self, document, acc_val):
         raise NotImplementedError()
@@ -743,7 +753,7 @@ class GroupSumOperator(GroupOperator):
             try:
                 self.value = float(value)
             except Exception:
-                raise self.make_error("the $sum operator requires key-ref or numeric type")
+                raise self.make_error("the $sum operator requires numeric type")
 
     def eval(self, document, acc_val):
         value = self.value
@@ -764,7 +774,7 @@ class GroupRefValueOperator(GroupOperator):
     def __init__(self, key, value):
         super(GroupRefValueOperator, self).__init__(key, value)
         if not Value.is_doc_ref_key(value):
-            raise self.make_error("the %s operator requires key-ref" % self.name)
+            raise self.make_error("%s field path references must be prefixed with a '$'" % self.name)
 
 
 class GroupMinOperator(GroupRefValueOperator):

@@ -18,26 +18,16 @@ class CommandFactory(object):
 
     @staticmethod
     def new(value):
-        def is_valid():
-            if not isinstance(value, dict):
-                return False
-            if len(value) != 1:
-                return False
-            cmd_k = value.keys()[0]
-            if not cmd_k:
-                return False
-            if cmd_k[0] != "$":
-                return False
-            return True
-
-        if not is_valid():
-            raise PipelineError("invalid command '%s'" % value)
+        if not isinstance(value, dict):
+            raise PipelineError("pipeline element is not an object")
+        if len(value) != 1:
+            raise PipelineError("pipeline specification object must contain exactly one field")
         cmd_k = value.keys()[0]
         cmd_v = value[cmd_k]
         if cmd_k in _commands:
             return _commands[cmd_k](cmd_v)
         else:
-            raise PipelineError("invalid command '%s'" % value)
+            raise PipelineError("unknow pipeline command '%s'" % cmd_k)
 
 
 class CommandMeta(type):
@@ -81,7 +71,7 @@ class MatchCommand(Command):
     def __init__(self, value):
         super(MatchCommand, self).__init__(value)
         if not isinstance(value, dict):
-            raise self.make_error("the $match command requires dict type")
+            raise self.make_error("$match specification must be an object")
         operators = []
         for k, v in value.iteritems():
             operators.append(OperatorFactory.new_match(k, v))
@@ -104,8 +94,10 @@ class ProjectCommand(Command):
 
     def __init__(self, value):
         super(ProjectCommand, self).__init__(value)
-        if not isinstance(value, dict) or not value:
-            raise self.make_error("the $project command requires non-empty dict type")
+        if not isinstance(value, dict):
+            raise self.make_error("$project specification must be an object")
+        if not value:
+            raise self.make_error("$projec requires at least one output field")
         operators = {}
         excludes = set()
         for k, v in value.iteritems():
@@ -114,7 +106,7 @@ class ProjectCommand(Command):
             else:
                 operators[k] = OperatorFactory.new_project(k, v)
         if operators and excludes:
-            raise self.make_error("the $project command cannot mix use exclusion and inclusion")
+            raise self.make_error("$project cannot mix use exclusion and inclusion")
         self.operators = operators
         self.excludes = excludes
 
@@ -137,9 +129,9 @@ class GroupCommand(Command):
     def __init__(self, value):
         super(GroupCommand, self).__init__(value)
         if not isinstance(value, dict):
-            raise self.make_error("the $group command requires dict type")
+            raise self.make_error("$group specification must be an object")
         elif "_id" not in value:
-            raise self.make_error("the $group command requires '_id' field")
+            raise self.make_error("$group specification must include an _id")
         operators = {}
         for k, v in value.iteritems():
             if k == "_id":
@@ -177,7 +169,7 @@ class GroupCommand(Command):
 
     def _valid_id(self, id_v):
         if isinstance(id_v, dict):
-            return OperatorFactory.new_expression("_id", id_v)
+            return OperatorFactory.new_project("_id", id_v)
         else:
             return id_v
 
@@ -199,19 +191,19 @@ class SortCommand(Command):
         if isinstance(value, (list, tuple)):
             for k, direction in value:
                 if not isinstance(k, basestring):
-                    raise self.make_error("$sort: key must be field name")
+                    raise self.make_error("$sort field path references must be prefixed with a '$'")
                 if (direction not in [ASCENDING, DESCENDING]):
-                    raise self.make_error("$sort: direction must be 1 or -1")
+                    raise self.make_error("$sort direction must be 1 or -1")
         elif isinstance(value, (dict, collections.OrderedDict)):
             for k, direction in value.iteritems():
                 if not isinstance(k, basestring):
-                    raise self.make_error("$sort: key must be field name")
+                    raise self.make_error("$sort field path references must be prefixed with a '$'")
                 if (direction not in [ASCENDING, DESCENDING]):
-                    raise self.make_error("$sort: direction must be 1 or -1")
+                    raise self.make_error("$sort direction must be 1 or -1")
 
                 self.value = [(k, direction) for k, direction in value.iteritems()]
         else:
-            raise self.make_error("the $sort command requires a list of (key, direction) pairs or a dict of {key: direction}")
+            raise self.make_error("$sort specification must be a list or a object")
 
     def feed(self, document):
         insort(self.documents, document, cmp=self.cmp_func)
@@ -252,7 +244,7 @@ class SkipCommand(Command):
         try:
             self.value = int(value)
         except Exception:
-            raise self.make_error("the $skip command requires numeric type")
+            raise self.make_error("$skip specification must be numeric type")
         self._skiped = 0
 
     def feed(self, document):
@@ -271,7 +263,7 @@ class LimitCommand(Command):
         try:
             self.value = int(value)
         except Exception:
-            raise self.make_error("the $limit command requires numeric type")
+            raise self.make_error("$limit specification must be numeric type")
         self._received = 0
 
     def feed(self, document):
@@ -279,7 +271,7 @@ class LimitCommand(Command):
             self._received += 1
             super(LimitCommand, self).feed(document)
         else:
-            raise LimitCompleted('the $limit command alreay received %d documents' % self.value)
+            raise LimitCompleted('$limit alreay received %d documents' % self.value)
 
 
 class UnwindCommand(Command):
@@ -289,7 +281,7 @@ class UnwindCommand(Command):
     def __init__(self, value):
         super(UnwindCommand, self).__init__(value)
         if not Value.is_doc_ref_key(value):
-            raise self.make_error("the $unwind command requires ref-key")
+            raise self.make_error("$unwind field path references must be prefixed with a '$'")
 
     def feed(self, document):
         vals = document.get(self.value[1:])
