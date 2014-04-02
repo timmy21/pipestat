@@ -135,16 +135,16 @@ $regex operator use regular expression to match specify field value, use like be
     ...    },
     ... ]
 
-$call operator use callable(argument is item field value and item), and return True or False to indicate match or not, use like below:
+$call operator use callable which argument is document, and return True or False to indicate match or not, use like below:
 
 .. code:: python
 
-    >>> mf = lambda v, item: v > item["out"] # equal to item["in"] > item["out"]
+    >>> mf = lambda doc: doc["in"] > doc["out"]
 
     >>> pipeline = [
     ...    {
     ...        "$match": {
-    ...            "in": {"$call": mf},
+    ...            "$call": mf,
     ...        },
     ...    },
     ... ]
