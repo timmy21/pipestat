@@ -6,6 +6,7 @@ import string
 import collections
 from pipestat.errors import OperatorError, CommandError
 from pipestat.utils import Value
+from pipestat.models import Document
 from datetime import datetime, date
 
 
@@ -338,7 +339,7 @@ class ProjectOperator(Operator):
 
     def project(self, document):
         try:
-            return {self.key: self.eval(document)}
+            return self.eval(document)
         except Exception, e:
             raise self.make_error("%s: runtime error '%s'" % (self.name, str(e)))
 
@@ -679,16 +680,16 @@ class ProjectCombineOperator(ProjectOperator):
 
     def __init__(self, key, value):
         super(ProjectCombineOperator, self).__init__(key, value)
-        combined_ops = []
+        combined_ops = {}
         for k, v in value.iteritems():
-            combined_ops.append(OperatorFactory.new_project(k, v))
+            combined_ops[k] = OperatorFactory.new_project(k, v)
         self.combined_ops = combined_ops
 
     def eval(self, document):
-        pv = {}
-        for combine_op in self.combined_ops:
-            pv.update(combine_op.project(document))
-        return pv
+        pv = Document()
+        for k, combine_op in self.combined_ops.iteritems():
+            pv.set(k, combine_op.project(document))
+        return dict(pv)
 
 
 class GroupOperator(Operator):
@@ -858,8 +859,8 @@ class GroupCombineOperator(GroupOperator):
         self.combined_ops = combined_ops
 
     def eval(self, document, acc_val):
-        acc_val = acc_val or {}
-        pv = {}
+        acc_val = acc_val or Document()
+        pv = Document()
         for k, combine_op in self.combined_ops.iteritems():
-            pv[k] = combine_op.group(document, acc_val.get(k))
-        return pv
+            pv.set(k, combine_op.group(document, acc_val.get(k)))
+        return dict(pv)

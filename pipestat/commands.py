@@ -106,13 +106,13 @@ class ProjectCommand(Command):
         super(ProjectCommand, self).__init__(value)
         if not isinstance(value, dict) or not value:
             raise self.make_error("the $project command requires non-empty dict type")
-        operators = []
+        operators = {}
         excludes = set()
         for k, v in value.iteritems():
             if v == 0:
                 excludes.add(k)
             else:
-                operators.append(OperatorFactory.new_project(k, v))
+                operators[k] = OperatorFactory.new_project(k, v)
         if operators and excludes:
             raise self.make_error("the $project command cannot mix use exclusion and inclusion")
         self.operators = operators
@@ -121,10 +121,8 @@ class ProjectCommand(Command):
     def feed(self, document):
         if self.operators:
             new_doc = Document()
-            for op in self.operators:
-                ret = op.project(document)
-                for k, v in ret.iteritems():
-                    new_doc.set(k, v)
+            for k, op in self.operators.iteritems():
+                new_doc.set(k, op.project(document))
         else:
             new_doc = Document(copy.deepcopy(document))
             for k in self.excludes:
@@ -154,9 +152,9 @@ class GroupCommand(Command):
     def feed(self, document):
         ids = self.gen_id(document)
         gid = json.dumps({"_id": ids})
-        acc_vals = self._id_docs.setdefault(gid, {})
+        acc_vals = self._id_docs.setdefault(gid, Document())
         for k, op in self.operators.iteritems():
-            acc_vals[k] = op.group(document, acc_vals.get(k))
+            acc_vals.set(k, op.group(document, acc_vals.get(k)))
 
     def result(self):
         documents = self._make_result()
@@ -185,7 +183,7 @@ class GroupCommand(Command):
 
     def gen_id(self, document):
         if isinstance(self._id, ProjectOperator):
-            return self._id.project(document)["_id"]
+            return self._id.project(document)
         elif Value.is_doc_ref_key(self._id):
             return document.get(self._id[1:])
         else:
