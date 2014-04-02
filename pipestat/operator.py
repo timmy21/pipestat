@@ -33,7 +33,7 @@ class OperatorFactory(object):
             elif len(value) > 1:
                 return MatchCombineOperator(key, value)
 
-        raise CommandError("the $match command with invalid operator for '%s'" % key, "$match")
+        raise CommandError("invalid operator for '%s'" % key, "$match")
 
     @staticmethod
     def new_project(key, value):
@@ -49,7 +49,7 @@ class OperatorFactory(object):
             if value:
                 return ProjectCombineOperator(key, value)
 
-        raise CommandError("the $project command with invalid operator for '%s'" % key, "$project")
+        raise CommandError("invalid operator for '%s'" % key, "$project")
 
     @staticmethod
     def new_group(key, value):
@@ -63,7 +63,7 @@ class OperatorFactory(object):
             if value:
                 return GroupCombineOperator(key, value)
 
-        raise CommandError("the $group command with invalid operator for '%s'" % key, "$group")
+        raise CommandError("invalid operator for '%s'" % key, "$group")
 
     @staticmethod
     def new_expression(key, value):
@@ -340,6 +340,8 @@ class ProjectOperator(Operator):
     def project(self, document):
         try:
             return self.eval(document)
+        except OperatorError:
+            raise
         except Exception, e:
             raise self.make_error("%s: runtime error '%s'" % (self.name, str(e)))
 
@@ -372,10 +374,7 @@ class ProjectExtractOperator(ProjectOperator):
         if isinstance(value, list) and len(value) == 2:
             if not Value.is_doc_ref_key(value[0]):
                 if isinstance(value[0], dict) and len(value[0]) == 1:
-                    try:
-                        self.value[0] = OperatorFactory.new_project(key, value[0])
-                    except Exception:
-                        raise self.make_error("$extract: string must be key-ref or nested operator")
+                    self.value[0] = OperatorFactory.new_project(key, value[0])
                 else:
                     raise self.make_error("$extract: string must be key-ref or nested operator")
             try:
@@ -411,10 +410,7 @@ class ProjectTimestampOperator(ProjectOperator):
         if isinstance(value, list) and len(value) == 2:
             if not Value.is_doc_ref_key(value[0]):
                 if isinstance(value[0], dict) and len(value[0]) == 1:
-                    try:
-                        self.value[0] = OperatorFactory.new_project(key, value[0])
-                    except Exception:
-                        raise self.make_error("$extract: string must be key-ref or nested operator")
+                    self.value[0] = OperatorFactory.new_project(key, value[0])
                 else:
                     raise self.make_error("$extract: string must be key-ref or nested operator")
             try:
@@ -439,16 +435,14 @@ class ProjectDualNumberOperator(ProjectOperator):
         super(ProjectDualNumberOperator, self).__init__(key, value)
         if isinstance(value, list) and len(value) == 2:
             for i, v in enumerate(value):
-                if isinstance(v, dict) and len(v) == 1:
-                    try:
+                if not Value.is_doc_ref_key(v):
+                    if isinstance(v, dict) and len(v) == 1:
                         self.value[i] = OperatorFactory.new_project(key, v)
-                    except Exception:
-                        raise self.make_error("%s: operand must be key-ref or nested operator or numeric type" % self.name)
-                elif not Value.is_doc_ref_key(v):
-                    try:
-                        self.value[i] = float(v)
-                    except Exception:
-                        raise self.make_error("%s: operand must be key-ref or nested operator or numeric type" % self.name)
+                    else:
+                        try:
+                            self.value[i] = float(v)
+                        except Exception:
+                            raise self.make_error("%s: operand must be key-ref or nested operator or numeric type" % self.name)
         else:
             raise self.make_error("the %s requires an array of 2 operands" % self.name)
 
@@ -516,10 +510,7 @@ class ProjectConvertStrOperator(ProjectOperator):
         super(ProjectConvertStrOperator, self).__init__(key, value)
         if not Value.is_doc_ref_key(value):
             if isinstance(value, dict) and len(value) == 1:
-                try:
-                    self.value = OperatorFactory.new_project(key, value)
-                except Exception:
-                    raise self.make_error("the %s requires key-ref or nested operator" % self.name)
+                self.value = OperatorFactory.new_project(key, value)
             else:
                 raise self.make_error("the %s requires key-ref or nested operator" % self.name)
 
@@ -553,16 +544,48 @@ class ProjectToUpperOperator(ProjectConvertStrOperator):
             return string.upper(v)
 
 
+class ProjectConcatOperator(ProjectOperator):
+
+    name = "$concat"
+
+    def __init__(self, key, value):
+        super(ProjectConcatOperator, self).__init__(key, value)
+        if isinstance(value, list) and len(value) > 2:
+            for i, item in enumerate(value):
+                if not isinstance(item, basestring):
+                    if isinstance(item, dict) and len(item) == 1:
+                        self.value[i] = OperatorFactory.new_project(key, item)
+                    else:
+                        raise self.make_error("the $concat requires strings or key-ref or nested operator")
+        else:
+            raise self.make_error("the $concat operator requires an array of at least 2 operands")
+
+    def eval(self, document):
+        rets = []
+        for v in self.value:
+            if isinstance(v, ProjectOperator):
+                rv = v.eval(document)
+            elif Value.is_doc_ref_key(v):
+                rv = document.get(v[1:])
+            else:
+                rv = v
+            if rv is None:
+                return None
+            elif not isinstance(rv, basestring):
+                raise self.make_error("the $concat operator only supports strings")
+            else:
+                rets.append(rv)
+        return "".join(rets)
+
+
+
 class ProjectDateOperator(ProjectOperator):
 
     def __init__(self, key, value):
         super(ProjectDateOperator, self).__init__(key, value)
         if not Value.is_doc_ref_key(value):
             if isinstance(value, dict) and len(value) == 1:
-                try:
-                    self.value = OperatorFactory.new_project(key, value)
-                except Exception:
-                    raise self.make_error("the %s requires key-ref or nested operator" % self.name)
+                self.value = OperatorFactory.new_project(key, value)
             else:
                 raise self.make_error("the %s requires key-ref or nested operator" % self.name)
 

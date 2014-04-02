@@ -312,6 +312,15 @@ class ProjectCommandTest(unittest.TestCase):
             Document({"app": "APP1"}),
         ])
 
+    def test_concat(self):
+        cmd = ProjectCommand({
+            "app": {"$concat": ["$app", "-", {"$toUpper": "$action"}]},
+        })
+        cmd.feed(Document({"app": "app2", "action": "cached"}))
+        self.assertListEqual(cmd.result(), [
+            Document({"app": "app2-CACHED"}),
+        ])
+
     def test_dayOfYear(self):
         cmd = ProjectCommand({
             "dy": {"$dayOfYear": "$ts"}

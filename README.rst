@@ -161,7 +161,7 @@ Reshapes a document stream by renaming, adding, or removing fields. Also use $pr
 See this `mongo aggregation $project
 <http://docs.mongodb.org/manual/reference/operator/aggregation/project/>`_ for more.
 
-$project command support basic operators: $add, $substract, $multiply, $divide, $mod, $toLower, $toUpper and Date operators.
+$project command support basic operators: $add, $substract, $multiply, $divide, $mod, $toLower, $toUpper, $concat and Date operators.
 in addition to this, pipestat $project command support more, like **$extract**, **$timestamp**, **$call**.
 
 $extract operator use to extract field from other field use regular expression,
