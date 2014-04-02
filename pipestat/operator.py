@@ -21,6 +21,8 @@ class OperatorFactory(object):
             return MatchAndOperator(value)
         elif key == "$or":
             return MatchOrOperator(value)
+        elif key == "$call":
+            return MatchCallOperator(value)
 
         if not isinstance(value, dict):
             return MatchEqualOperator(key, value)
@@ -28,6 +30,8 @@ class OperatorFactory(object):
             if len(value) == 1:
                 name = value.keys()[0]
                 match_operators = _operators.get("$match", {})
+                if name in ["$and", "$or", "$call"]:
+                    raise CommandError("invalid operator '%s'" % name)
                 if name in match_operators:
                     return match_operators[name](key, value[name])
                 else:
@@ -249,18 +253,17 @@ class MatchNotInOperator(MatchBelongOperator):
         return doc_val not in value
 
 
-class MatchCallOperator(MatchKeyCmpOperator):
+class MatchCallOperator(MatchOperator):
 
     name = "$call"
 
-    def __init__(self, key, value):
-        super(MatchCallOperator, self).__init__(key, value)
+    def __init__(self, value):
+        self.value = value
         if not callable(value):
             raise self.make_error("the $call operator requires callable")
 
     def eval(self, document):
-        doc_val = document.get(self.key)
-        if self.value(doc_val, document):
+        if self.value(document):
             return True
         return False
 

@@ -117,7 +117,7 @@ class MatchCommandTest(unittest.TestCase):
 
     def test_call(self):
         cmd = MatchCommand({
-            "elapse": {"$call": lambda x, doc: x%2 == 0},
+            "$call": lambda doc: doc["elapse"]%2 == 0,
         })
         cmd.feed(Document({"app": "app2", "elapse": 3}))
         cmd.feed(Document({"app": "app1", "elapse": 1}))
