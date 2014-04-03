@@ -6,7 +6,7 @@ import collections
 from pipestat.bsort import insort
 from pipestat.errors import PipelineError, CommandError, LimitCompleted
 from pipestat.operator import OperatorFactory, ProjectOperator
-from pipestat.models import Document
+from pipestat.models import Document, undefined
 from pipestat.utils import Value
 from pipestat.constants import ASCENDING, DESCENDING
 
@@ -146,7 +146,7 @@ class GroupCommand(Command):
         gid = json.dumps({"_id": ids})
         acc_vals = self._id_docs.setdefault(gid, Document())
         for k, op in self.operators.iteritems():
-            acc_vals.set(k, op.group(document, acc_vals.get(k)))
+            acc_vals.set(k, op.group(document, acc_vals.get(k, undefined)))
 
     def result(self):
         documents = self._make_result()

@@ -5,8 +5,8 @@ import time
 import string
 import collections
 from pipestat.errors import OperatorError, CommandError
-from pipestat.utils import Value
-from pipestat.models import Document
+from pipestat.utils import Value, isNumberType
+from pipestat.models import Document, undefined
 from datetime import datetime, date
 
 
@@ -109,14 +109,14 @@ class MatchOperator(Operator):
         raise NotImplemented()
 
 
-class MatchKeyCmpOperator(MatchOperator):
+class MatchKeyOperator(MatchOperator):
 
     def __init__(self, key, value):
         self.key = key
         self.value = value
 
 
-class MatchRegexpOperator(MatchKeyCmpOperator):
+class MatchRegexpOperator(MatchKeyOperator):
 
     name = "$regexp"
 
@@ -135,29 +135,20 @@ class MatchRegexpOperator(MatchKeyCmpOperator):
         return False
 
 
-class MatchNumberCmpOperator(MatchKeyCmpOperator):
-
-    def __init__(self, key, value):
-        super(MatchNumberCmpOperator, self).__init__(key, value)
-        if not Value.is_doc_ref_key(value):
-            try:
-                self.value = float(value)
-            except Exception:
-                raise self.make_error("the %s operator requires numeric type" % self.name)
+class MatchCmpOperator(MatchKeyOperator):
 
     def eval(self, document):
-        doc_val = float(document.get(self.key))
-        if Value.is_doc_ref_key(self.value):
-            value = float(document.get(self.value[1:]))
-            return self.cmp(doc_val, value)
-        else:
-            return self.cmp(doc_val, self.value)
+        doc_val = document.get(self.key)
+        value = self.value
+        if Value.is_doc_ref_key(value):
+            value = document.get(value[1:])
+        return self.cmp(doc_val, value)
 
     def cmp(self, doc_val, value):
         raise NotImplementedError()
 
 
-class MatchLTOperator(MatchNumberCmpOperator):
+class MatchLTOperator(MatchCmpOperator):
 
     name = "$lt"
 
@@ -165,7 +156,7 @@ class MatchLTOperator(MatchNumberCmpOperator):
         return doc_val < value
 
 
-class MatchLTEOperator(MatchNumberCmpOperator):
+class MatchLTEOperator(MatchCmpOperator):
 
     name = "$lte"
 
@@ -173,7 +164,7 @@ class MatchLTEOperator(MatchNumberCmpOperator):
         return doc_val <= value
 
 
-class MatchGTOperator(MatchNumberCmpOperator):
+class MatchGTOperator(MatchCmpOperator):
 
     name = "$gt"
 
@@ -181,7 +172,7 @@ class MatchGTOperator(MatchNumberCmpOperator):
         return doc_val > value
 
 
-class MatchGTEOperator(MatchNumberCmpOperator):
+class MatchGTEOperator(MatchCmpOperator):
 
     name = "$gte"
 
@@ -189,49 +180,34 @@ class MatchGTEOperator(MatchNumberCmpOperator):
         return doc_val >= value
 
 
-class MatchEqualOperator(MatchKeyCmpOperator):
+class MatchEqualOperator(MatchCmpOperator):
 
     name = "$eq"
 
-    def eval(self, document):
-        doc_val = document.get(self.key)
-        if Value.is_doc_ref_key(self.value):
-            value = document.get(self.value[1:])
-            return doc_val == value
-        else:
-            return doc_val == self.value
+    def cmp(self, doc_val, value):
+        return doc_val == value
 
 
-class MatchNotEqualOperator(MatchKeyCmpOperator):
+class MatchNotEqualOperator(MatchCmpOperator):
 
     name = "$ne"
 
-    def eval(self, document):
-        doc_val = document.get(self.key)
-        if Value.is_doc_ref_key(self.value):
-            value = document.get(self.value[1:])
-            return doc_val != value
-        else:
-            return doc_val != self.value
+    def cmp(self, doc_val, value):
+        return doc_val != value
 
 
-class MatchBelongOperator(MatchKeyCmpOperator):
+class MatchBelongOperator(MatchKeyOperator):
 
     def __init__(self, key, value):
         super(MatchBelongOperator, self).__init__(key, value)
-        if not Value.is_doc_ref_key(value):
-            if isinstance(value, collections.Iterable):
-                super(MatchBelongOperator, self).__init__(key, value)
-            else:
-                raise self.make_error("the %s operator requires iterable" % self.name)
+        if isinstance(value, collections.Iterable):
+            super(MatchBelongOperator, self).__init__(key, value)
+        else:
+            raise self.make_error("the %s operator requires iterable" % self.name)
 
     def eval(self, document):
         doc_val = document.get(self.key)
-        if Value.is_doc_ref_key(self.value):
-            value = document.get(self.value[1:])
-            return self.belong(doc_val, value)
-        else:
-            return self.belong(doc_val, self.value)
+        return self.belong(doc_val, self.value)
 
     def belong(self, doc_val, value):
         raise NotImplementedError()
@@ -268,6 +244,21 @@ class MatchCallOperator(MatchOperator):
         return False
 
 
+class LogicSubOperator(object):
+
+    def __init__(self):
+        self.operators = []
+
+    def add(self, op):
+        self.operators.append(op)
+
+    def match(self, document):
+        for op in self.operators:
+            if not op.match(document):
+                return False
+        return True
+
+
 class MatchLogicOperator(MatchOperator):
 
     def __init__(self, value):
@@ -275,10 +266,11 @@ class MatchLogicOperator(MatchOperator):
         if isinstance(value, list):
             sub_ops = []
             for sub_op in value:
-                if isinstance(sub_op, dict) and len(sub_op) == 1:
-                    sub_op_key = sub_op.keys()[0]
-                    sub_op_val = sub_op[sub_op_key]
-                    sub_ops.append(OperatorFactory.new_match(sub_op_key, sub_op_val))
+                if isinstance(sub_op, dict):
+                    sop = LogicSubOperator()
+                    for k, v in sub_op.iteritems():
+                        sop.add(OperatorFactory.new_match(k, v))
+                    sub_ops.append(sop)
                 else:
                     raise self.make_error('%s match element must be object' % self.name)
             self.sub_ops = sub_ops
@@ -308,7 +300,7 @@ class MatchOrOperator(MatchLogicOperator):
         return False
 
 
-class MatchCombineOperator(MatchKeyCmpOperator):
+class MatchCombineOperator(MatchKeyOperator):
 
     def __init__(self, key, value):
         super(MatchCombineOperator, self).__init__(key, value)
@@ -753,20 +745,16 @@ class GroupSumOperator(GroupOperator):
     def __init__(self, key, value):
         super(GroupSumOperator, self).__init__(key, value)
         if not Value.is_doc_ref_key(value):
-            try:
-                self.value = float(value)
-            except Exception:
+            if not isNumberType(value):
                 raise self.make_error("the $sum operator requires numeric type")
 
     def eval(self, document, acc_val):
         value = self.value
         if Value.is_doc_ref_key(value):
             value = document.get(value[1:])
-            if value is not None:
-                value = float(value)
-        if acc_val is None:
+        if acc_val == undefined:
             acc_val = 0
-        if value is not None:
+        if isNumberType(value):
             return acc_val + value
         else:
             return acc_val
@@ -786,12 +774,8 @@ class GroupMinOperator(GroupRefValueOperator):
 
     def eval(self, document, acc_val):
         value = document.get(self.value[1:])
-        if value is not None:
-            value = float(value)
-        if acc_val is None:
+        if value < acc_val:
             return value
-        elif value is not None:
-            return min(acc_val, value)
         else:
             return acc_val
 
@@ -802,12 +786,8 @@ class GroupMaxOperator(GroupRefValueOperator):
 
     def eval(self, document, acc_val):
         value = document.get(self.value[1:])
-        if value is not None:
-            value = float(value)
-        if acc_val is None:
+        if value > acc_val:
             return value
-        elif value is not None:
-            return max(acc_val, value)
         else:
             return acc_val
 
@@ -817,9 +797,9 @@ class GroupFirstOperator(GroupRefValueOperator):
     name = "$first"
 
     def eval(self, document, acc_val):
-        if acc_val is not None:
-            return acc_val
-        return document.get(self.value[1:])
+        if acc_val == undefined:
+            return document.get(self.value[1:])
+        return acc_val
 
 
 class GroupLastOperator(GroupRefValueOperator):
@@ -828,9 +808,7 @@ class GroupLastOperator(GroupRefValueOperator):
 
     def eval(self, document, acc_val):
         value = document.get(self.value[1:])
-        if value is not None:
-            return value
-        return acc_val
+        return value
 
 
 class GroupAddToSetOperator(GroupRefValueOperator):
@@ -838,10 +816,10 @@ class GroupAddToSetOperator(GroupRefValueOperator):
     name = "$addToSet"
 
     def eval(self, document, acc_val):
-        if acc_val is None:
+        if acc_val == undefined:
             acc_val = []
         value = document.get(self.value[1:])
-        if (value is not None) and (value not in acc_val):
+        if value not in acc_val:
             acc_val.append(value)
         return acc_val
 
@@ -851,11 +829,10 @@ class GroupPushOperator(GroupRefValueOperator):
     name = "$push"
 
     def eval(self, document, acc_val):
-        if acc_val is None:
+        if acc_val == undefined:
             acc_val = []
         value = document.get(self.value[1:])
-        if value is not None:
-            acc_val.append(value)
+        acc_val.append(value)
         return acc_val
 
 
@@ -864,12 +841,10 @@ class GroupConcatToSetOperator(GroupRefValueOperator):
     name = "$concatToSet"
 
     def eval(self, document, acc_val):
-        if acc_val is None:
+        if acc_val == undefined:
             acc_val = []
         value = document.get(self.value[1:])
-        if value is not None:
-            return list(set(acc_val + list(value)))
-        return acc_val
+        return list(set(acc_val + list(value)))
 
 
 class GroupConcatToListOperator(GroupRefValueOperator):
@@ -877,12 +852,10 @@ class GroupConcatToListOperator(GroupRefValueOperator):
     name = "$concatToList"
 
     def eval(self, document, acc_val):
-        if acc_val is None:
+        if acc_val == undefined:
             acc_val = []
         value = document.get(self.value[1:])
-        if value is not None:
-            return acc_val + list(value)
-        return acc_val
+        return acc_val + list(value)
 
 
 class GroupCombineOperator(GroupOperator):
@@ -895,8 +868,9 @@ class GroupCombineOperator(GroupOperator):
         self.combined_ops = combined_ops
 
     def eval(self, document, acc_val):
-        acc_val = acc_val or Document()
+        if acc_val is undefined:
+            acc_val = Document()
         pv = Document()
         for k, combine_op in self.combined_ops.iteritems():
-            pv.set(k, combine_op.group(document, acc_val.get(k)))
+            pv.set(k, combine_op.group(document, acc_val.get(k, undefined)))
         return dict(pv)

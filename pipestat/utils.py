@@ -1,4 +1,5 @@
 # -*- coding: utf-8 -*-
+import types
 
 
 class Value(object):
@@ -22,3 +23,8 @@ class Value(object):
         if val[0] != "$":
             return False
         return True
+
+
+def isNumberType(val):
+    NumberTypes = (types.IntType, types.LongType, types.FloatType)
+    return isinstance(val, NumberTypes)

@@ -3,6 +3,38 @@
 import copy
 
 
+class _Undefined(object):
+
+    def __eq__(self, other):
+        if isinstance(other, _Undefined):
+            return True
+        return False
+
+    def __ne__(self, other):
+        return not self.__eq__(other)
+
+    def __lt__(self, other):
+        if isinstance(other, _Undefined):
+            return False
+        return True
+
+    def __le__(self, other):
+        return True
+
+    def __gt__(self, other):
+        if isinstance(other, _Undefined):
+            return False
+        return True
+
+    def __ge__(self, other):
+        return True
+
+    def __nonzero__(self):
+        return False
+
+undefined = _Undefined()
+
+
 class Document(dict):
 
     def get(self, key, default=None):
