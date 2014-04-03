@@ -7,7 +7,7 @@ from pipestat.bsort import insort
 from pipestat.errors import PipelineError, CommandError, LimitCompleted
 from pipestat.operator import OperatorFactory, ProjectOperator
 from pipestat.models import Document, undefined
-from pipestat.utils import Value
+from pipestat.utils import Value, isNumberType
 from pipestat.constants import ASCENDING, DESCENDING
 
 
@@ -191,13 +191,13 @@ class SortCommand(Command):
         if isinstance(value, (list, tuple)):
             for k, direction in value:
                 if not isinstance(k, basestring):
-                    raise self.make_error("$sort field path references must be prefixed with a '$'")
+                    raise self.make_error("$sort field must be string type")
                 if (direction not in [ASCENDING, DESCENDING]):
                     raise self.make_error("$sort direction must be 1 or -1")
         elif isinstance(value, (dict, collections.OrderedDict)):
             for k, direction in value.iteritems():
                 if not isinstance(k, basestring):
-                    raise self.make_error("$sort field path references must be prefixed with a '$'")
+                    raise self.make_error("$sort field must be string type")
                 if (direction not in [ASCENDING, DESCENDING]):
                     raise self.make_error("$sort direction must be 1 or -1")
 
@@ -241,9 +241,9 @@ class SkipCommand(Command):
 
     def __init__(self, value):
         super(SkipCommand, self).__init__(value)
-        try:
+        if isNumberType(value):
             self.value = int(value)
-        except Exception:
+        else:
             raise self.make_error("$skip specification must be numeric type")
         self._skiped = 0
 
@@ -260,9 +260,9 @@ class LimitCommand(Command):
 
     def __init__(self, value):
         super(LimitCommand, self).__init__(value)
-        try:
+        if isNumberType(value):
             self.value = int(value)
-        except Exception:
+        else:
             raise self.make_error("$limit specification must be numeric type")
         self._received = 0
 
@@ -284,8 +284,12 @@ class UnwindCommand(Command):
             raise self.make_error("$unwind field path references must be prefixed with a '$'")
 
     def feed(self, document):
-        vals = document.get(self.value[1:])
-        for v in vals:
-            new_doc = Document(copy.deepcopy(document))
-            new_doc.set(self.value[1:], v)
-            super(UnwindCommand, self).feed(new_doc)
+        vals = document.get(self.value[1:], undefined)
+        if vals != undefined:
+            if not isinstance(vals, collections.Iterable):
+                raise self.make_error("$unwind value at end of field path must be an array")
+
+            for v in vals:
+                new_doc = Document(copy.deepcopy(document))
+                new_doc.set(self.value[1:], v)
+                super(UnwindCommand, self).feed(new_doc)
