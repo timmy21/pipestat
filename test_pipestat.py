@@ -193,9 +193,9 @@ class ProjectCommandTest(unittest.TestCase):
         cmd.feed(Document({"app": "app1", "elapse": 1}))
         cmd.feed(Document({"app": "app1", "elapse": 4}))
         self.assertListEqual(cmd.result(), [
-            Document({"count": None, "app": "app2", "time": 3}),
-            Document({"count": None, "app": "app1", "time": 1}),
-            Document({"count": None, "app": "app1", "time": 4}),
+            Document({"app": "app2", "time": 3}),
+            Document({"app": "app1", "time": 1}),
+            Document({"app": "app1", "time": 4}),
         ])
 
     def test_extract(self):

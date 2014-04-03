@@ -1,5 +1,5 @@
 from pipestat.api import pipestat
-from pipestat.models import Document
+from pipestat.models import Document, undefined
 from pipestat.pipeline import Pipeline
 from pipestat.errors import PipeStatError, PipelineError, OperatorError, CommandError, LimitCompleted
 

@@ -347,9 +347,9 @@ class ProjectValueOperator(ProjectOperator):
 
     def eval(self, document):
         if Value.is_doc_ref_key(self.value):
-            return document.get(self.value[1:])
+            return document.get(self.value[1:], undefined)
         elif self.value == 1:
-            return document.get(self.key)
+            return document.get(self.key, undefined)
 
 
 class ProjectExtractOperator(ProjectOperator):
@@ -379,16 +379,21 @@ class ProjectExtractOperator(ProjectOperator):
         if isinstance(v, ProjectOperator):
             v = v.eval(document)
         elif Value.is_doc_ref_key(v):
-            v = document.get(v[1:], default="")
+            v = document.get(v[1:], undefined)
 
-        m = self.value[1].search(v)
-        if m:
-            if self.key in m.groupdict():
-                return m.groupdict()[self.key]
-            elif len(m.groups()) > 0:
-                return m.group(1)
-            else:
-                return m.group()
+        if v == undefined:
+            return v
+        elif not isinstance(v, basestring):
+            raise self.make_error("$extract source value must be string type")
+        else:
+            m = self.value[1].search(v)
+            if m:
+                if self.key in m.groupdict():
+                    return m.groupdict()[self.key]
+                elif len(m.groups()) > 0:
+                    return m.group(1)
+                else:
+                    return m.group()
 
 
 class ProjectTimestampOperator(ProjectOperator):
@@ -418,8 +423,14 @@ class ProjectTimestampOperator(ProjectOperator):
         if isinstance(v, ProjectOperator):
             v = v.eval(document)
         elif Value.is_doc_ref_key(v):
-            v = document.get(v[1:], default="")
-        return time.mktime(time.strptime(v, self.value[1]))
+            v = document.get(v[1:], undefined)
+
+        if v == undefined:
+            return v
+        elif not isinstance(v, basestring):
+            raise self.make_error("$timestamp source value must be string type")
+        else:
+            return time.mktime(time.strptime(v, self.value[1]))
 
 
 class ProjectDualNumberOperator(ProjectOperator):
@@ -434,11 +445,10 @@ class ProjectDualNumberOperator(ProjectOperator):
                             self.value[i] = OperatorFactory.new_project(key, v)
                         else:
                             raise self.make_error("%s parameter operator must contain exactly one field" % self.name)
+                    elif isNumberType(v):
+                        self.value[i] = float(v)
                     else:
-                        try:
-                            self.value[i] = float(v)
-                        except Exception:
-                            raise self.make_error("%s element must be numeric type" % self.name)
+                        raise self.make_error("%s element must be numeric type" % self.name)
         else:
             raise self.make_error("the %s operator requires an array of two elements" % self.name)
 
@@ -453,7 +463,13 @@ class ProjectDualNumberOperator(ProjectOperator):
             v2 = v2.eval(document)
         elif Value.is_doc_ref_key(v2):
             v2 = document.get(v2[1:])
-        return self.compute(float(v1), float(v2))
+
+        if (v1 == undefined or v1 == None) or (v2 == undefined or v2 == None):
+            return None
+        elif isNumberType(v1) and isNumberType(v2):
+            return self.compute(float(v1), float(v2))
+        else:
+            raise self.make_error("%s only supports numeric types" % self.name)
 
     def compute(self, v1, v2):
         raise NotImplementedError()
@@ -518,7 +534,10 @@ class ProjectConvertStrOperator(ProjectOperator):
         if isinstance(v, ProjectOperator):
             v = v.eval(document)
         elif Value.is_doc_ref_key(v):
-            v = document.get(v[1:])
+            v = document.get(v[1:], undefined)
+
+        if v == undefined:
+            return undefined
         return self.convert(v)
 
     def convert(self, v):
@@ -532,6 +551,7 @@ class ProjectToLowerOperator(ProjectConvertStrOperator):
     def convert(self, v):
         if v is not None:
             return string.lower(v)
+        return ""
 
 
 class ProjectToUpperOperator(ProjectConvertStrOperator):
@@ -541,6 +561,7 @@ class ProjectToUpperOperator(ProjectConvertStrOperator):
     def convert(self, v):
         if v is not None:
             return string.upper(v)
+        return ""
 
 
 class ProjectConcatOperator(ProjectOperator):
@@ -568,10 +589,10 @@ class ProjectConcatOperator(ProjectOperator):
             if isinstance(v, ProjectOperator):
                 rv = v.eval(document)
             elif Value.is_doc_ref_key(v):
-                rv = document.get(v[1:])
+                rv = document.get(v[1:], undefined)
             else:
                 rv = v
-            if rv is None:
+            if rv is None or rv == undefined:
                 return None
             elif not isinstance(rv, basestring):
                 raise self.make_error("$concat runtime error: only supports strings")
@@ -599,14 +620,19 @@ class ProjectDateOperator(ProjectOperator):
         if isinstance(self.value, ProjectOperator):
             v = self.value.eval(document)
         elif Value.is_doc_ref_key(self.value):
-            v = document.get(self.value[1:])
+            v = document.get(self.value[1:], undefined)
+
+        if v == undefined or v == None:
+            return undefined
 
         if isinstance(v, datetime):
             return v
         elif isinstance(v, date):
             return datetime(v.year, v.month, v.day)
-        else:
+        elif isNumberType(v):
             return datetime.fromtimestamp(float(v))
+        else:
+            raise self.make_error("%s value must be date, datetime or timestamp type" % self.name)
 
 
 class ProjectDayOfYearOperator(ProjectDateOperator):
@@ -615,6 +641,9 @@ class ProjectDayOfYearOperator(ProjectDateOperator):
 
     def eval(self, document):
         d1 = self._make_date(document)
+        if d1 == undefined:
+            return None
+
         d2 = datetime(d1.year, 1, 1)
         return (d1-d2).days
 
@@ -625,6 +654,8 @@ class ProjectDayOfMonthOperator(ProjectDateOperator):
 
     def eval(self, document):
         d = self._make_date(document)
+        if d == undefined:
+            return None
         return d.day
 
 
@@ -634,6 +665,8 @@ class ProjectDayOfWeekOperator(ProjectDateOperator):
 
     def eval(self, document):
         d = self._make_date(document)
+        if d == undefined:
+            return None
         return d.weekday() + 1
 
 
@@ -643,6 +676,8 @@ class ProjectYearOperator(ProjectDateOperator):
 
     def eval(self, document):
         d = self._make_date(document)
+        if d == undefined:
+            return None
         return d.year
 
 
@@ -652,6 +687,8 @@ class ProjectMonthOperator(ProjectDateOperator):
 
     def eval(self, document):
         d = self._make_date(document)
+        if d == undefined:
+            return None
         return d.month
 
 
@@ -661,6 +698,8 @@ class ProjectHourOperator(ProjectDateOperator):
 
     def eval(self, document):
         d = self._make_date(document)
+        if d == undefined:
+            return None
         return d.hour
 
 
@@ -670,6 +709,8 @@ class ProjectMinuteOperator(ProjectDateOperator):
 
     def eval(self, document):
         d = self._make_date(document)
+        if d == undefined:
+            return None
         return d.minute
 
 
@@ -679,6 +720,8 @@ class ProjectSecondOperator(ProjectDateOperator):
 
     def eval(self, document):
         d = self._make_date(document)
+        if d == undefined:
+            return None
         return d.second
 
 
@@ -688,6 +731,8 @@ class ProjectMillisecondOperator(ProjectDateOperator):
 
     def eval(self, document):
         d = self._make_date(document)
+        if d == undefined:
+            return None
         return d.microsecond // 1000
 
 

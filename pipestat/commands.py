@@ -114,7 +114,9 @@ class ProjectCommand(Command):
         if self.operators:
             new_doc = Document()
             for k, op in self.operators.iteritems():
-                new_doc.set(k, op.project(document))
+                v = op.project(document)
+                if v != undefined:
+                    new_doc.set(k, v)
         else:
             new_doc = Document(copy.deepcopy(document))
             for k in self.excludes:
