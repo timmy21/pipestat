@@ -2,7 +2,7 @@
 
 import unittest
 import datetime
-from pipestat.models import Document
+from pipestat.models import Document, undefined
 from pipestat.commands import (
     MatchCommand, ProjectCommand, GroupCommand,
     SortCommand, SkipCommand, LimitCommand, UnwindCommand
@@ -312,6 +312,15 @@ class ProjectCommandTest(unittest.TestCase):
             Document({"app": "APP1"}),
         ])
 
+    def test_toNumber(self):
+        cmd = ProjectCommand({
+            "elapse": {"$toNumber": "$elapse"},
+        })
+        cmd.feed(Document({"app": "app2", "elapse": "3"}))
+        self.assertListEqual(cmd.result(), [
+            Document({"elapse": 3}),
+        ])
+
     def test_concat(self):
         cmd = ProjectCommand({
             "app": {"$concat": ["$app", "-", {"$toUpper": "$action"}]},
@@ -564,6 +573,25 @@ class GroupCommandTest(unittest.TestCase):
         self.assertListEqual(cmd.result(), [
             {"_id": "app2", "ips": ["1.1.1.1"]},
             {"_id": "app1", "ips": ["1.1.1.2", "1.1.1.3", "1.1.1.2"]},
+        ])
+
+    def test_call(self):
+        def nsum(document, acc_val):
+            if acc_val == undefined:
+                acc_val = 0
+            v = float(document.get("price"))
+            return v + acc_val
+
+        cmd = GroupCommand({
+            "_id": "$app",
+            "price": {"$call": nsum}
+        })
+        cmd.feed(Document({"app": "app2", "price": "1"}))
+        cmd.feed(Document({"app": "app2", "price": "4"}))
+        cmd.feed(Document({"app": "app1", "price": "3"}))
+        self.assertListEqual(cmd.result(), [
+            {"_id": "app2", "price": 5},
+            {"_id": "app1", "price": 3},
         ])
 
 

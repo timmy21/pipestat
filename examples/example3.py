@@ -16,7 +16,11 @@ pipeline1 = Pipeline([
     {
         "$project": {
             "app": {"$extract": ["$_event", "app:(\w*)"]},
-            "elapse": {"$extract": ["$_event", "elapse:([\d.]*)"]},
+            "elapse": {
+                "$toNumber": {
+                    "$extract": ["$_event", "elapse:([\d.]*)"],
+                 },
+            }
         },
     },
     {

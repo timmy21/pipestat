@@ -516,10 +516,10 @@ class ProjectModOperator(ProjectDualNumberOperator):
 
 
 
-class ProjectConvertStrOperator(ProjectOperator):
+class ProjectConvertOperator(ProjectOperator):
 
     def __init__(self, key, value):
-        super(ProjectConvertStrOperator, self).__init__(key, value)
+        super(ProjectConvertOperator, self).__init__(key, value)
         if not Value.is_doc_ref_key(value):
             if isinstance(value, dict):
                 if len(value) == 1:
@@ -544,7 +544,7 @@ class ProjectConvertStrOperator(ProjectOperator):
         raise NotImplementedError()
 
 
-class ProjectToLowerOperator(ProjectConvertStrOperator):
+class ProjectToLowerOperator(ProjectConvertOperator):
 
     name = "$toLower"
 
@@ -554,7 +554,7 @@ class ProjectToLowerOperator(ProjectConvertStrOperator):
         return ""
 
 
-class ProjectToUpperOperator(ProjectConvertStrOperator):
+class ProjectToUpperOperator(ProjectConvertOperator):
 
     name = "$toUpper"
 
@@ -562,6 +562,16 @@ class ProjectToUpperOperator(ProjectConvertStrOperator):
         if v is not None:
             return string.upper(v)
         return ""
+
+
+class ProjectToNumberOperator(ProjectConvertOperator):
+
+    name = "$toNumber"
+
+    def convert(self, v):
+        if v is not None:
+            return float(v)
+        return None
 
 
 class ProjectConcatOperator(ProjectOperator):
@@ -901,6 +911,19 @@ class GroupConcatToListOperator(GroupRefValueOperator):
             acc_val = []
         value = document.get(self.value[1:])
         return acc_val + list(value)
+
+
+class GroupCallOperator(GroupOperator):
+
+    name = "$call"
+
+    def __init__(self, key, value):
+        super(GroupCallOperator, self).__init__(key, value)
+        if not callable(value):
+            raise self.make_error("the $call operator requires callable")
+
+    def eval(self, document, acc_val):
+        return self.value(document, acc_val)
 
 
 class GroupCombineOperator(GroupOperator):

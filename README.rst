@@ -26,7 +26,11 @@ extract fields from event, and then stat count and elapse:
     ...         "$project": {
     ...             "app": {"$extract": ["$_event", "app:(\w*)"]},
     ...             "action": {"$extract": ["$_event", "(cached|refresh|locked)"]},
-    ...             "elapse": {"$extract": ["$_event", "elapse:([\d.]*)"]},
+    ...             "elapse": {
+    ...                 "$toNumber": {
+    ...                     "$extract": ["$_event", "elapse:([\d.]*)"],
+    ...                 },
+    ...             }
     ...         },
     ...     },
     ...     {
@@ -162,7 +166,7 @@ See this `mongo aggregation $project
 <http://docs.mongodb.org/manual/reference/operator/aggregation/project/>`_ for more.
 
 $project command support basic operators: $add, $substract, $multiply, $divide, $mod, $toLower, $toUpper, $concat and Date operators.
-in addition to this, pipestat $project command support more, like **$extract**, **$timestamp**, **$call**.
+in addition to this, pipestat $project command support more, like **$toNumber**, **$extract**, **$timestamp**, **$call**.
 
 $extract operator use to extract field from other field use regular expression,
 value first find groupdict()[FIELD], next find group(1), final use group(), use like below:
@@ -174,7 +178,11 @@ value first find groupdict()[FIELD], next find group(1), final use group(), use 
     ...        "$project": {
     ...            "app": {"$extract": ["$_event", "app:(\w*)"]},
     ...            "action": {"$extract": ["$_event", "(cached|refresh|locked)"]},
-    ...            "elapse": {"$extract": ["$_event", "elapse:([\d.]*)"]},
+    ...             "elapse": {
+    ...                 "$toNumber": {
+    ...                     "$extract": ["$_event", "elapse:([\d.]*)"],
+    ...                 },
+    ...             }
     ...        },
     ...    },
     ... ]
@@ -226,7 +234,7 @@ See this `mongo aggregation $group
 <http://docs.mongodb.org/manual/reference/operator/aggregation/group/>`_ for more.
 
 $group command support basic operators: $sum, $min, $max, $first, $last, $addToSet, $push.
-in addition to this, pipestat $group command support more, like **$concatToSet**, **$concatList**.
+in addition to this, pipestat $group command support more, like **$concatToSet**, **$concatList**, **$call**.
 see a example as below:
 
 .. code:: python
@@ -355,7 +363,11 @@ see below example.
     ...     {
     ...         "$project": {
     ...             "app": {"$extract": ["$_event", "app:(\w*)"]},
-    ...             "elapse": {"$extract": ["$_event", "elapse:([\d.]*)"]},
+    ...             "elapse": {
+    ...                 "$toNumber": {
+    ...                     "$extract": ["$_event", "elapse:([\d.]*)"],
+    ...                 },
+    ...             }
     ...         },
     ...     },
     ...     {

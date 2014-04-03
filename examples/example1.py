@@ -16,8 +16,14 @@ pipeline = [
    {
        "$project": {
            "app": {"$extract": ["$_event", "app:(\w*)"]},
-           "action": {"$extract": ["$_event", "(cached|refresh|locked)"]},
-           "elapse": {"$extract": ["$_event", "elapse:([\d.]*)"]},
+           "action": {
+               "$extract": ["$_event", "(cached|refresh|locked)"]
+            },
+            "elapse": {
+               "$toNumber": {
+                   "$extract": ["$_event", "elapse:([\d.]*)"],
+                },
+            }
        },
    },
    {
