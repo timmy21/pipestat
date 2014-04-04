@@ -771,7 +771,9 @@ class ProjectCombineOperator(ProjectOperator):
     def eval(self, document):
         pv = Document()
         for k, combine_op in self.combined_ops.iteritems():
-            pv.set(k, combine_op.project(document))
+            v = combine_op.project(document)
+            if v != undefined:
+                pv.set(k, v)
         return dict(pv)
 
 
