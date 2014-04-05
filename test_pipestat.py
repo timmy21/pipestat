@@ -7,6 +7,7 @@ from pipestat.commands import (
     MatchCommand, ProjectCommand, GroupCommand,
     SortCommand, SkipCommand, LimitCommand, UnwindCommand
 )
+from pipestat import pipestat
 
 
 class MatchCommandTest(unittest.TestCase):
@@ -579,19 +580,19 @@ class GroupCommandTest(unittest.TestCase):
         def nsum(document, acc_val):
             if acc_val == undefined:
                 acc_val = 0
-            v = float(document.get("price"))
+            v = float(document.get("elapse"))
             return v + acc_val
 
         cmd = GroupCommand({
             "_id": "$app",
-            "price": {"$call": nsum}
+            "elapse": {"$call": nsum}
         })
-        cmd.feed(Document({"app": "app2", "price": "1"}))
-        cmd.feed(Document({"app": "app2", "price": "4"}))
-        cmd.feed(Document({"app": "app1", "price": "3"}))
+        cmd.feed(Document({"app": "app2", "elapse": "1"}))
+        cmd.feed(Document({"app": "app2", "elapse": "4"}))
+        cmd.feed(Document({"app": "app1", "elapse": "3"}))
         self.assertListEqual(cmd.result(), [
-            {"_id": "app2", "price": 5},
-            {"_id": "app1", "price": 3},
+            {"_id": "app2", "elapse": 5},
+            {"_id": "app1", "elapse": 3},
         ])
 
 
@@ -659,6 +660,152 @@ class UnwindCommandTest(unittest.TestCase):
         self.assertListEqual(cmd.result(), [
             Document({"app": "app2", "tags": "tag1"}),
             Document({"app": "app2", "tags": "tag2"}),
+        ])
+
+
+
+class ExamplesTest(unittest.TestCase):
+
+    def setUp(self):
+        self.dataset = [
+            {
+               "_event": "[2014-01-16 16:13:49,171] DEBUG Collect app:app37 timeline end... refresh, elapse:1.0",
+            },
+            {
+               "_event": "[2014-01-16 16:13:49,171] DEBUG Collect app:app37 timeline end... refresh, elapse:2.0",
+            },
+            {
+               "_event": "[2014-01-16 16:13:50,000] DEBUG Collect app:app37 timeline end... cached, elapse:0.01",
+            },
+            {
+               "_event": "[2014-01-16 16:13:50,231] DEBUG Collect app:app40 timeline end... refresh, elapse:2.0",
+            },
+        ]
+
+    def test1(self):
+        pipeline = [
+           {
+               "$match": {
+                   "_event": {"$regexp": "Collect\s*app:.*timeline.*end.*elapse"},
+               },
+           },
+           {
+               "$project": {
+                   "app": {"$extract": ["$_event", "app:(\w*)"]},
+                   "action": {
+                       "$extract": ["$_event", "(cached|refresh|locked)"]
+                    },
+                    "elapse": {
+                       "$toNumber": {
+                           "$extract": ["$_event", "elapse:([\d.]*)"],
+                        },
+                    }
+               },
+           },
+           {
+               "$group": {
+                   "_id": {
+                       "app": "$app",
+                        "action": {
+                            "$toUpper": "$action"
+                        }
+                   },
+                   "count": {"$sum": 1},
+                   "min_elapse": {"$min": "$elapse"},
+                   "max_elapse": {"$max": "$elapse"},
+                   "sum_elapse": {"$sum": "$elapse"},
+               }
+           },
+           {
+               "$project": {
+                   "app": "$_id.app",
+                   "action": "$_id.action",
+                   "count": "$count",
+                   "elapse": {
+                       "min": "$min_elapse",
+                       "max": "$max_elapse",
+                       "avg": {"$divide": ["$sum_elapse", "$count"]},
+                   },
+               },
+           },
+           {
+               "$sort": [
+                   ("app", 1),
+                   ("action", 1),
+               ]
+           },
+        ]
+        results = pipestat(self.dataset, pipeline)
+        self.assertEqual(results, [
+            {
+                "app": "app37",
+                "action": "CACHED",
+                "count": 1,
+                "elapse": {
+                    "min": 0.01,
+                    "max": 0.01,
+                    "avg": 0.01,
+                }
+            },
+            {
+                "app": "app37",
+                "action": "REFRESH",
+                "count": 2,
+                "elapse": {
+                    "min": 1.0,
+                    "max": 2.0,
+                    "avg": 1.5,
+                }
+            },
+            {
+                "app": "app40",
+                "action": "REFRESH",
+                "count": 1,
+                "elapse": {
+                    "min": 2.0,
+                    "max": 2.0,
+                    "avg": 2.0,
+                }
+            },
+        ])
+
+    def test2(self):
+        pipeline = [
+            {
+                "$match": {
+                    "_event": {"$regexp": "Collect\s*app:.*timeline.*end.*elapse"},
+                },
+            },
+            {
+                "$project": {
+                    "app": {"$extract": ["$_event", "app:(\w*)"]},
+                    "action": {"$extract": ["$_event", "(cached|refresh|locked)"]},
+                },
+            },
+            {
+                "$group": {
+                    "_id": {
+                        "app": "$app",
+                    },
+                    "actions": {"$addToSet": {"$toUpper": "$action"}},
+                }
+            },
+            {
+                "$project": {
+                    "app": "$_id.app",
+                    "actions": "$actions",
+                },
+            },
+            {
+                "$sort": [
+                    ("app", 1),
+                ]
+            },
+        ]
+        results = pipestat(self.dataset, pipeline)
+        self.assertEqual(results, [
+            {"app": "app37", "actions": ["REFRESH", "CACHED"]},
+            {"app": "app40", "actions": ["REFRESH"]},
         ])
 
 
