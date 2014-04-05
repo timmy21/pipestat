@@ -128,7 +128,9 @@ class MatchRegexpOperator(MatchKeyOperator):
             raise self.make_error("the $regexp operator requires regular expression")
 
     def eval(self, document):
-        doc_val = document.get(self.key, default="")
+        doc_val = document.get(self.key)
+        if not isinstance(doc_val, basestring):
+            return False
         m = self.pat.search(doc_val)
         if m:
             return True
@@ -138,10 +140,10 @@ class MatchRegexpOperator(MatchKeyOperator):
 class MatchCmpOperator(MatchKeyOperator):
 
     def eval(self, document):
-        doc_val = document.get(self.key)
+        doc_val = document.get(self.key, undefined)
         value = self.value
         if Value.is_doc_ref_key(value):
-            value = document.get(value[1:])
+            value = document.get(value[1:], undefined)
         return self.cmp(doc_val, value)
 
     def cmp(self, doc_val, value):
@@ -206,7 +208,7 @@ class MatchBelongOperator(MatchKeyOperator):
             raise self.make_error("the %s operator requires iterable" % self.name)
 
     def eval(self, document):
-        doc_val = document.get(self.key)
+        doc_val = document.get(self.key, undefined)
         return self.belong(doc_val, self.value)
 
     def belong(self, doc_val, value):
@@ -381,10 +383,8 @@ class ProjectExtractOperator(ProjectOperator):
         elif Value.is_doc_ref_key(v):
             v = document.get(v[1:], undefined)
 
-        if v == undefined:
-            return v
-        elif not isinstance(v, basestring):
-            raise self.make_error("$extract source value must be string type")
+        if not isinstance(v, basestring):
+            raise self.make_error("$extract source must be string type")
         else:
             m = self.value[1].search(v)
             if m:
@@ -411,9 +411,8 @@ class ProjectTimestampOperator(ProjectOperator):
                         raise self.make_error("$timestamp parameter operator must contain exactly one field")
                 else:
                     raise self.make_error("$timestamp field path references must be prefixed with a '$'")
-            try:
-                time.strftime(value[1])
-            except Exception:
+
+            if not isinstance(value[1], basestring):
                 raise self.make_error("$timestamp format must be string type")
         else:
             raise self.make_error("the $timestamp operator requires an array of two elements")
@@ -423,12 +422,10 @@ class ProjectTimestampOperator(ProjectOperator):
         if isinstance(v, ProjectOperator):
             v = v.eval(document)
         elif Value.is_doc_ref_key(v):
-            v = document.get(v[1:], undefined)
+            v = document.get(v[1:])
 
-        if v == undefined:
-            return v
-        elif not isinstance(v, basestring):
-            raise self.make_error("$timestamp source value must be string type")
+        if not isinstance(v, basestring):
+            raise self.make_error("$timestamp source must be string type")
         else:
             return time.mktime(time.strptime(v, self.value[1]))
 
@@ -534,10 +531,7 @@ class ProjectConvertOperator(ProjectOperator):
         if isinstance(v, ProjectOperator):
             v = v.eval(document)
         elif Value.is_doc_ref_key(v):
-            v = document.get(v[1:], undefined)
-
-        if v == undefined:
-            return undefined
+            v = document.get(v[1:])
         return self.convert(v)
 
     def convert(self, v):
@@ -549,9 +543,9 @@ class ProjectToLowerOperator(ProjectConvertOperator):
     name = "$toLower"
 
     def convert(self, v):
-        if v is not None:
-            return string.lower(v)
-        return ""
+        if v == undefined or v == None:
+            return ""
+        return string.lower(v)
 
 
 class ProjectToUpperOperator(ProjectConvertOperator):
@@ -559,9 +553,9 @@ class ProjectToUpperOperator(ProjectConvertOperator):
     name = "$toUpper"
 
     def convert(self, v):
-        if v is not None:
-            return string.upper(v)
-        return ""
+        if v == undefined or v == None:
+            return ""
+        return string.upper(v)
 
 
 class ProjectToNumberOperator(ProjectConvertOperator):
@@ -569,9 +563,9 @@ class ProjectToNumberOperator(ProjectConvertOperator):
     name = "$toNumber"
 
     def convert(self, v):
-        if v is not None:
-            return float(v)
-        return None
+        if v == undefined or v == None:
+            return 0
+        return float(v)
 
 
 class ProjectConcatOperator(ProjectOperator):
@@ -599,7 +593,7 @@ class ProjectConcatOperator(ProjectOperator):
             if isinstance(v, ProjectOperator):
                 rv = v.eval(document)
             elif Value.is_doc_ref_key(v):
-                rv = document.get(v[1:], undefined)
+                rv = document.get(v[1:])
             else:
                 rv = v
             if rv is None or rv == undefined:
@@ -625,15 +619,16 @@ class ProjectDateOperator(ProjectOperator):
             else:
                 raise self.make_error("%s field path references must be prefixed with a '$'" % self.name)
 
+    def eval(self, document):
+        d = self._make_date(document)
+        return self._eval(d)
+
     def _make_date(self, document):
         v = self.value
         if isinstance(self.value, ProjectOperator):
             v = self.value.eval(document)
         elif Value.is_doc_ref_key(self.value):
-            v = document.get(self.value[1:], undefined)
-
-        if v == undefined or v == None:
-            return undefined
+            v = document.get(self.value[1:])
 
         if isinstance(v, datetime):
             return v
@@ -642,30 +637,23 @@ class ProjectDateOperator(ProjectOperator):
         elif isNumberType(v):
             return datetime.fromtimestamp(float(v))
         else:
-            raise self.make_error("%s value must be date, datetime or timestamp type" % self.name)
+            raise self.make_error("%s value must be date type" % self.name)
 
 
 class ProjectDayOfYearOperator(ProjectDateOperator):
 
     name = "$dayOfYear"
 
-    def eval(self, document):
-        d1 = self._make_date(document)
-        if d1 == undefined:
-            return None
-
-        d2 = datetime(d1.year, 1, 1)
-        return (d1-d2).days
+    def _eval(self, d):
+        dy = datetime(d.year, 1, 1)
+        return (d-dy).days
 
 
 class ProjectDayOfMonthOperator(ProjectDateOperator):
 
     name = "$dayOfMonth"
 
-    def eval(self, document):
-        d = self._make_date(document)
-        if d == undefined:
-            return None
+    def _eval(self, d):
         return d.day
 
 
@@ -673,10 +661,7 @@ class ProjectDayOfWeekOperator(ProjectDateOperator):
 
     name = "$dayOfWeek"
 
-    def eval(self, document):
-        d = self._make_date(document)
-        if d == undefined:
-            return None
+    def _eval(self, d):
         return d.weekday() + 1
 
 
@@ -684,10 +669,7 @@ class ProjectYearOperator(ProjectDateOperator):
 
     name = "$year"
 
-    def eval(self, document):
-        d = self._make_date(document)
-        if d == undefined:
-            return None
+    def _eval(self, d):
         return d.year
 
 
@@ -695,10 +677,7 @@ class ProjectMonthOperator(ProjectDateOperator):
 
     name = "$month"
 
-    def eval(self, document):
-        d = self._make_date(document)
-        if d == undefined:
-            return None
+    def _eval(self, d):
         return d.month
 
 
@@ -706,10 +685,7 @@ class ProjectHourOperator(ProjectDateOperator):
 
     name = "$hour"
 
-    def eval(self, document):
-        d = self._make_date(document)
-        if d == undefined:
-            return None
+    def _eval(self, d):
         return d.hour
 
 
@@ -717,10 +693,7 @@ class ProjectMinuteOperator(ProjectDateOperator):
 
     name = "$minute"
 
-    def eval(self, document):
-        d = self._make_date(document)
-        if d == undefined:
-            return None
+    def _eval(self, d):
         return d.minute
 
 
@@ -728,10 +701,7 @@ class ProjectSecondOperator(ProjectDateOperator):
 
     name = "$second"
 
-    def eval(self, document):
-        d = self._make_date(document)
-        if d == undefined:
-            return None
+    def _eval(self, d):
         return d.second
 
 
@@ -739,10 +709,7 @@ class ProjectMillisecondOperator(ProjectDateOperator):
 
     name = "$millisecond"
 
-    def eval(self, document):
-        d = self._make_date(document)
-        if d == undefined:
-            return None
+    def _eval(self, d):
         return d.microsecond // 1000
 
 
@@ -795,20 +762,37 @@ class GroupOperator(Operator):
         raise NotImplementedError()
 
 
-class GroupSumOperator(GroupOperator):
+class GroupUnaryOperator(GroupOperator):
+
+    def __init__(self, key, value):
+        super(GroupUnaryOperator, self).__init__(key, value)
+        if not Value.is_doc_ref_key(value):
+            if isinstance(value, dict):
+                if len(value) == 1:
+                    self.value = OperatorFactory.new_project(key, value)
+                else:
+                    raise self.make_error("aggregating group operator must contain exactly one field")
+            elif isinstance(value, collections.Iterable):
+                raise self.make_error("aggregating group operators are unary (%s)" % self.name)
+
+
+    def get_value(self, document, default=None):
+        v = self.value
+        if isinstance(self.value, ProjectOperator):
+            v = self.value.eval(document)
+            if v == undefined:
+                v = default
+        elif Value.is_doc_ref_key(self.value):
+            v = document.get(self.value[1:], default)
+        return v
+
+
+class GroupSumOperator(GroupUnaryOperator):
 
     name = "$sum"
 
-    def __init__(self, key, value):
-        super(GroupSumOperator, self).__init__(key, value)
-        if not Value.is_doc_ref_key(value):
-            if not isNumberType(value):
-                raise self.make_error("the $sum operator requires numeric type")
-
     def eval(self, document, acc_val):
-        value = self.value
-        if Value.is_doc_ref_key(value):
-            value = document.get(value[1:])
+        value = self.get_value(document)
         if acc_val == undefined:
             acc_val = 0
         if isNumberType(value):
@@ -817,105 +801,101 @@ class GroupSumOperator(GroupOperator):
             return acc_val
 
 
-class GroupRefValueOperator(GroupOperator):
-
-    def __init__(self, key, value):
-        super(GroupRefValueOperator, self).__init__(key, value)
-        if not Value.is_doc_ref_key(value):
-            raise self.make_error("%s field path references must be prefixed with a '$'" % self.name)
-
-
-class GroupMinOperator(GroupRefValueOperator):
+class GroupMinOperator(GroupUnaryOperator):
 
     name = "$min"
 
     def eval(self, document, acc_val):
-        value = document.get(self.value[1:])
+        value = self.get_value(document, undefined)
         if value < acc_val:
             return value
         else:
             return acc_val
 
 
-class GroupMaxOperator(GroupRefValueOperator):
+class GroupMaxOperator(GroupUnaryOperator):
 
     name = "$max"
 
     def eval(self, document, acc_val):
-        value = document.get(self.value[1:])
+        value = self.get_value(document, undefined)
         if value > acc_val:
             return value
         else:
             return acc_val
 
 
-class GroupFirstOperator(GroupRefValueOperator):
+class GroupFirstOperator(GroupUnaryOperator):
 
     name = "$first"
 
     def eval(self, document, acc_val):
         if acc_val == undefined:
-            return document.get(self.value[1:])
+            return self.get_value(document)
         return acc_val
 
 
-class GroupLastOperator(GroupRefValueOperator):
+class GroupLastOperator(GroupUnaryOperator):
 
     name = "$last"
 
     def eval(self, document, acc_val):
-        value = document.get(self.value[1:])
-        return value
+        return self.get_value(document)
 
 
-class GroupAddToSetOperator(GroupRefValueOperator):
+class GroupAddToSetOperator(GroupUnaryOperator):
 
     name = "$addToSet"
 
     def eval(self, document, acc_val):
         if acc_val == undefined:
             acc_val = []
-        value = document.get(self.value[1:])
-        if value not in acc_val:
+        value = self.get_value(document, undefined)
+        if value != undefined and value not in acc_val:
             acc_val.append(value)
         return acc_val
 
 
-class GroupPushOperator(GroupRefValueOperator):
+class GroupPushOperator(GroupUnaryOperator):
 
     name = "$push"
 
     def eval(self, document, acc_val):
         if acc_val == undefined:
             acc_val = []
-        value = document.get(self.value[1:])
-        acc_val.append(value)
+        value = self.get_value(document, undefined)
+        if value != undefined:
+            acc_val.append(value)
         return acc_val
 
 
-class GroupConcatToSetOperator(GroupRefValueOperator):
+class GroupConcatToSetOperator(GroupUnaryOperator):
 
     name = "$concatToSet"
 
     def eval(self, document, acc_val):
         if acc_val == undefined:
             acc_val = []
-        value = document.get(self.value[1:])
-        return list(set(acc_val + list(value)))
+        value = self.get_value(document, undefined)
+        if value != undefined:
+            acc_val = list(set(acc_val + list(value)))
+        return acc_val
 
 
-class GroupConcatToListOperator(GroupRefValueOperator):
+class GroupConcatToListOperator(GroupUnaryOperator):
 
     name = "$concatToList"
 
     def eval(self, document, acc_val):
         if acc_val == undefined:
             acc_val = []
-        value = document.get(self.value[1:])
-        return acc_val + list(value)
+        value = self.get_value(document, undefined)
+        if value != undefined:
+            acc_val = acc_val + list(value)
+        return acc_val
 
 
-class GroupCallOperator(GroupOperator):
+class GroupCallOperator(GroupUnaryOperator):
 
     name = "$call"
 
@@ -942,5 +922,8 @@ class GroupCombineOperator(GroupOperator):
             acc_val = Document()
         pv = Document()
         for k, combine_op in self.combined_ops.iteritems():
-            pv.set(k, combine_op.group(document, acc_val.get(k, undefined)))
+            v = combine_op.group(document, acc_val.get(k, undefined))
+            if v == undefined:
+                v = None
+            pv.set(k, v)
         return dict(pv)

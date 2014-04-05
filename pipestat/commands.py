@@ -148,7 +148,10 @@ class GroupCommand(Command):
         gid = json.dumps({"_id": ids})
         acc_vals = self._id_docs.setdefault(gid, Document())
         for k, op in self.operators.iteritems():
-            acc_vals.set(k, op.group(document, acc_vals.get(k, undefined)))
+            v = op.group(document, acc_vals.get(k, undefined))
+            if v == undefined:
+                v = None
+            acc_vals.set(k, v)
 
     def result(self):
         documents = self._make_result()
