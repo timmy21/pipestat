@@ -4,9 +4,11 @@ import re
 import time
 import string
 import collections
+import types
 from pipestat.errors import OperatorError, CommandError
-from pipestat.utils import Value, isNumberType
+from pipestat.utils import Value, isNumberType, isDateType
 from pipestat.models import Document, undefined
+from pipestat.constants import NumberTypes, DateTypes
 from datetime import datetime, date
 
 
@@ -40,19 +42,19 @@ class OperatorFactory(object):
                 return MatchCombineOperator(key, value)
 
     @staticmethod
-    def new_project(key, value):
+    def new_project(key, value, expr=False):
         if not isinstance(value, dict):
-            return ProjectValueOperator(key, value)
+            return ProjectValueOperator(key, value, expr=expr)
         else:
             if len(value) == 1:
                 name = value.keys()[0]
                 project_operators = _operators.get("$project", {})
                 if Value.is_operator(name):
                     if name in project_operators:
-                        return project_operators[name](key, value[name])
+                        return project_operators[name](key, value[name], expr=expr)
                     else:
                         raise CommandError("unknow $project operator '%s'" % name, "$project")
-            return ProjectCombineOperator(key, value)
+            return ProjectCombineOperator(key, value, expr=expr)
 
     @staticmethod
     def new_group(key, value):
@@ -322,9 +324,10 @@ class ProjectOperator(Operator):
 
     command = "$project"
 
-    def __init__(self, key, value):
+    def __init__(self, key, value, expr=False):
         self.key = key
         self.value = value
+        self.expr = expr
 
     def project(self, document):
         try:
@@ -341,11 +344,15 @@ class ProjectOperator(Operator):
 class ProjectValueOperator(ProjectOperator):
 
     name = "$value"
+    returnTypes = None
 
-    def __init__(self, key, value):
-        super(ProjectValueOperator, self).__init__(key, value)
+    def __init__(self, key, value, expr=False):
+        super(ProjectValueOperator, self).__init__(key, value, expr=expr)
         if not (Value.is_doc_ref_key(value) or value == 1):
             raise self.make_error("field path references must be prefixed with a '$'")
+
+        if self.expr and value == 1:
+            raise self.make_error("field inclusion is not allowed inside of $expressions")
 
     def eval(self, document):
         if Value.is_doc_ref_key(self.value):
@@ -357,18 +364,20 @@ class ProjectValueOperator(ProjectOperator):
 class ProjectExtractOperator(ProjectOperator):
 
     name = "$extract"
+    returnTypes = types.StringTypes
 
-    def __init__(self, key, value):
-        super(ProjectExtractOperator, self).__init__(key, value)
+    def __init__(self, key, value, expr=False):
+        super(ProjectExtractOperator, self).__init__(key, value, expr=expr)
         if isinstance(value, list) and len(value) == 2:
             if not Value.is_doc_ref_key(value[0]):
                 if isinstance(value[0], dict):
-                    if len(value[0]) == 1:
-                        self.value[0] = OperatorFactory.new_project(key, value[0])
+                    prj = OperatorFactory.new_project(key, value[0], expr=True)
+                    if (not prj.returnTypes) or (set(prj.returnTypes) & set(types.StringTypes)):
+                        self.value[0] = prj
                     else:
-                        raise self.make_error("$extract parameter operator must contain exactly one field")
-                else:
-                    raise self.make_error("$extract field path references must be prefixed with a '$'")
+                        raise self.make_error("$extract source must be string type")
+                elif not isinstance(value[0], basestring):
+                    raise self.make_error("$extract source must be string type")
             try:
                 self.value[1] = re.compile(value[1])
             except Exception:
@@ -399,18 +408,20 @@ class ProjectExtractOperator(ProjectOperator):
 class ProjectTimestampOperator(ProjectOperator):
 
     name = "$timestamp"
+    returnTypes = [types.IntType, types.LongType, types.FloatType]
 
-    def __init__(self, key, value):
-        super(ProjectTimestampOperator, self).__init__(key, value)
+    def __init__(self, key, value, expr=False):
+        super(ProjectTimestampOperator, self).__init__(key, value, expr=expr)
         if isinstance(value, list) and len(value) == 2:
             if not Value.is_doc_ref_key(value[0]):
                 if isinstance(value[0], dict):
-                    if len(value[0]) == 1:
-                        self.value[0] = OperatorFactory.new_project(key, value[0])
+                    prj = OperatorFactory.new_project(key, value[0], expr=True)
+                    if (not prj.returnTypes) or (set(prj.returnTypes) & set(types.StringTypes)):
+                        self.value[0] = prj
                     else:
-                        raise self.make_error("$timestamp parameter operator must contain exactly one field")
-                else:
-                    raise self.make_error("$timestamp field path references must be prefixed with a '$'")
+                        raise self.make_error("$timestamp source must be string type")
+                elif not isinstance(value[0], basestring):
+                    raise self.make_error("$timestamp source must be string type")
 
             if not isinstance(value[1], basestring):
                 raise self.make_error("$timestamp format must be string type")
@@ -432,16 +443,17 @@ class ProjectTimestampOperator(ProjectOperator):
 
 class ProjectDualNumberOperator(ProjectOperator):
 
-    def __init__(self, key, value):
-        super(ProjectDualNumberOperator, self).__init__(key, value)
+    def __init__(self, key, value, expr=False):
+        super(ProjectDualNumberOperator, self).__init__(key, value, expr=expr)
         if isinstance(value, list) and len(value) == 2:
             for i, v in enumerate(value):
                 if not Value.is_doc_ref_key(v):
                     if isinstance(v, dict):
-                        if len(v) == 1:
-                            self.value[i] = OperatorFactory.new_project(key, v)
+                        prj = OperatorFactory.new_project(key, v, expr=True)
+                        if (not prj.returnTypes) or (set(prj.returnTypes) & set(NumberTypes)):
+                            self.value[i] = prj
                         else:
-                            raise self.make_error("%s parameter operator must contain exactly one field" % self.name)
+                            raise self.make_error("%s element must be numeric type" % self.name)
                     elif isNumberType(v):
                         self.value[i] = float(v)
                     else:
@@ -475,6 +487,7 @@ class ProjectDualNumberOperator(ProjectOperator):
 class ProjectAddOperator(ProjectDualNumberOperator):
 
     name = "$add"
+    returnTypes = NumberTypes
 
     def compute(self, v1, v2):
         return v1 + v2
@@ -483,6 +496,7 @@ class ProjectAddOperator(ProjectDualNumberOperator):
 class ProjectSubstractOperator(ProjectDualNumberOperator):
 
     name = "$substract"
+    returnTypes = NumberTypes
 
     def compute(self, v1, v2):
         return v1 - v2
@@ -491,6 +505,7 @@ class ProjectSubstractOperator(ProjectDualNumberOperator):
 class ProjectMultiplyOperator(ProjectDualNumberOperator):
 
     name = "$multiply"
+    returnTypes = NumberTypes
 
     def compute(self, v1, v2):
         return v1 * v2
@@ -499,6 +514,7 @@ class ProjectMultiplyOperator(ProjectDualNumberOperator):
 class ProjectDivideOperator(ProjectDualNumberOperator):
 
     name = "$divide"
+    returnTypes = NumberTypes
 
     def compute(self, v1, v2):
         return v1 / v2
@@ -507,6 +523,7 @@ class ProjectDivideOperator(ProjectDualNumberOperator):
 class ProjectModOperator(ProjectDualNumberOperator):
 
     name = "$mod"
+    returnTypes = NumberTypes
 
     def compute(self, v1, v2):
         return v1 % v2
@@ -515,16 +532,17 @@ class ProjectModOperator(ProjectDualNumberOperator):
 
 class ProjectConvertOperator(ProjectOperator):
 
-    def __init__(self, key, value):
-        super(ProjectConvertOperator, self).__init__(key, value)
+    def __init__(self, key, value, expr=False):
+        super(ProjectConvertOperator, self).__init__(key, value, expr=expr)
         if not Value.is_doc_ref_key(value):
             if isinstance(value, dict):
-                if len(value) == 1:
-                    self.value = OperatorFactory.new_project(key, value)
+                prj = OperatorFactory.new_project(key, value, expr=True)
+                if (not prj.returnTypes) or (set(prj.returnTypes) & set(types.StringTypes)):
+                    self.value = prj
                 else:
-                    raise self.make_error("%s parameter operator must contain exactly one field" % self.name)
-            else:
-                raise self.make_error("%s field path references must be prefixed with a '$'" % self.name)
+                    raise self.make_error("%s source must be string type" % self.name)
+            elif not isinstance(value, basestring):
+                raise self.make_error("%s source must be string type" % self.name)
 
     def eval (self, document):
         v = self.value
@@ -541,6 +559,7 @@ class ProjectConvertOperator(ProjectOperator):
 class ProjectToLowerOperator(ProjectConvertOperator):
 
     name = "$toLower"
+    returnTypes = types.StringTypes
 
     def convert(self, v):
         if v == undefined or v == None:
@@ -551,6 +570,7 @@ class ProjectToLowerOperator(ProjectConvertOperator):
 class ProjectToUpperOperator(ProjectConvertOperator):
 
     name = "$toUpper"
+    returnTypes = types.StringTypes
 
     def convert(self, v):
         if v == undefined or v == None:
@@ -561,6 +581,7 @@ class ProjectToUpperOperator(ProjectConvertOperator):
 class ProjectToNumberOperator(ProjectConvertOperator):
 
     name = "$toNumber"
+    returnTypes = NumberTypes
 
     def convert(self, v):
         if v == undefined or v == None:
@@ -571,19 +592,20 @@ class ProjectToNumberOperator(ProjectConvertOperator):
 class ProjectConcatOperator(ProjectOperator):
 
     name = "$concat"
+    returnTypes = types.StringTypes
 
-    def __init__(self, key, value):
-        super(ProjectConcatOperator, self).__init__(key, value)
+    def __init__(self, key, value, expr=False):
+        super(ProjectConcatOperator, self).__init__(key, value, expr=expr)
         if isinstance(value, list) and len(value) > 2:
-            for i, item in enumerate(value):
-                if not isinstance(item, basestring):
-                    if isinstance(item, dict):
-                        if len(item) == 1:
-                            self.value[i] = OperatorFactory.new_project(key, item)
-                        else:
-                            raise self.make_error("$concat parameter operator must contain exactly one field")
+            for i, v in enumerate(value):
+                if isinstance(v, dict):
+                    prj = OperatorFactory.new_project(key, v, expr=True)
+                    if (not prj.returnTypes) or (set(prj.returnTypes) & set(types.StringTypes)):
+                        self.value[i] = prj
                     else:
-                        raise self.make_error("$concat field path references must be prefixed with a '$'")
+                        raise self.make_error("$concat source must be string type")
+                elif not isinstance(value[i], basestring):
+                    raise self.make_error("$concat source must be string type")
         else:
             raise self.make_error("the $concat operator requires an array of at least two elements")
 
@@ -608,16 +630,17 @@ class ProjectConcatOperator(ProjectOperator):
 
 class ProjectDateOperator(ProjectOperator):
 
-    def __init__(self, key, value):
-        super(ProjectDateOperator, self).__init__(key, value)
+    def __init__(self, key, value, expr=False):
+        super(ProjectDateOperator, self).__init__(key, value, expr=expr)
         if not Value.is_doc_ref_key(value):
             if isinstance(value, dict):
-                if len(value) == 1:
-                    self.value = OperatorFactory.new_project(key, value)
+                prj = OperatorFactory.new_project(key, value, expr=True)
+                if (not prj.returnTypes) or (set(prj.returnTypes) & set(DateTypes)):
+                    self.value = prj
                 else:
-                    raise self.make_error("%s parameter operator must contain exactly one field" % self.name)
-            else:
-                raise self.make_error("%s field path references must be prefixed with a '$'" % self.name)
+                    raise self.make_error("%s value must be date type" % self.name)
+            elif (not isinstance(value, (datetime, date))) and (not isNumberType(value)):
+                raise self.make_error("%s value must be date type" % self.name)
 
     def eval(self, document):
         d = self._make_date(document)
@@ -643,6 +666,7 @@ class ProjectDateOperator(ProjectOperator):
 class ProjectDayOfYearOperator(ProjectDateOperator):
 
     name = "$dayOfYear"
+    returnTypes = [types.IntType]
 
     def _eval(self, d):
         dy = datetime(d.year, 1, 1)
@@ -652,6 +676,7 @@ class ProjectDayOfYearOperator(ProjectDateOperator):
 class ProjectDayOfMonthOperator(ProjectDateOperator):
 
     name = "$dayOfMonth"
+    returnTypes = [types.IntType]
 
     def _eval(self, d):
         return d.day
@@ -660,6 +685,7 @@ class ProjectDayOfMonthOperator(ProjectDateOperator):
 class ProjectDayOfWeekOperator(ProjectDateOperator):
 
     name = "$dayOfWeek"
+    returnTypes = [types.IntType]
 
     def _eval(self, d):
         return d.weekday() + 1
@@ -668,6 +694,7 @@ class ProjectDayOfWeekOperator(ProjectDateOperator):
 class ProjectYearOperator(ProjectDateOperator):
 
     name = "$year"
+    returnTypes = [types.IntType]
 
     def _eval(self, d):
         return d.year
@@ -676,6 +703,7 @@ class ProjectYearOperator(ProjectDateOperator):
 class ProjectMonthOperator(ProjectDateOperator):
 
     name = "$month"
+    returnTypes = [types.IntType]
 
     def _eval(self, d):
         return d.month
@@ -684,6 +712,7 @@ class ProjectMonthOperator(ProjectDateOperator):
 class ProjectHourOperator(ProjectDateOperator):
 
     name = "$hour"
+    returnTypes = [types.IntType]
 
     def _eval(self, d):
         return d.hour
@@ -692,6 +721,7 @@ class ProjectHourOperator(ProjectDateOperator):
 class ProjectMinuteOperator(ProjectDateOperator):
 
     name = "$minute"
+    returnTypes = [types.IntType]
 
     def _eval(self, d):
         return d.minute
@@ -700,6 +730,7 @@ class ProjectMinuteOperator(ProjectDateOperator):
 class ProjectSecondOperator(ProjectDateOperator):
 
     name = "$second"
+    returnTypes = [types.IntType]
 
     def _eval(self, d):
         return d.second
@@ -708,6 +739,7 @@ class ProjectSecondOperator(ProjectDateOperator):
 class ProjectMillisecondOperator(ProjectDateOperator):
 
     name = "$millisecond"
+    returnTypes = [types.IntType]
 
     def _eval(self, d):
         return d.microsecond // 1000
@@ -716,9 +748,10 @@ class ProjectMillisecondOperator(ProjectDateOperator):
 class ProjectCallOperator(ProjectOperator):
 
     name = "$call"
+    returnTypes = None
 
-    def __init__(self, key, value):
-        super(ProjectCallOperator, self).__init__(key, value)
+    def __init__(self, key, value, expr=False):
+        super(ProjectCallOperator, self).__init__(key, value, expr=expr)
         if not callable(value):
             raise self.make_error("the $call operator requires callable")
 
@@ -728,11 +761,15 @@ class ProjectCallOperator(ProjectOperator):
 
 class ProjectCombineOperator(ProjectOperator):
 
-    def __init__(self, key, value):
-        super(ProjectCombineOperator, self).__init__(key, value)
+    returnTypes = [types.DictType]
+
+    def __init__(self, key, value, expr=False):
+        super(ProjectCombineOperator, self).__init__(key, value, expr=expr)
         combined_ops = {}
         for k, v in value.iteritems():
-            combined_ops[k] = OperatorFactory.new_project(k, v)
+            if "." in k:
+                raise CommandError("dotted field names are only allowed at the top level", self.command)
+            combined_ops[k] = OperatorFactory.new_project("%s.%s" %(key, k), v)
         self.combined_ops = combined_ops
 
     def eval(self, document):

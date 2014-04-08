@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-import types
+from pipestat.constants import NumberTypes, DateTypes
 
 
 class Value(object):
@@ -26,5 +26,7 @@ class Value(object):
 
 
 def isNumberType(val):
-    NumberTypes = (types.IntType, types.LongType, types.FloatType)
     return isinstance(val, NumberTypes)
+
+def isDateType(val):
+    return isinstance(val, DateTypes)
