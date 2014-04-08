@@ -8,7 +8,7 @@ import types
 from pipestat.errors import OperatorError, CommandError
 from pipestat.utils import Value, isNumberType, isDateType
 from pipestat.models import Document, undefined
-from pipestat.constants import NumberTypes, DateTypes
+from pipestat.constants import NumberTypes, DateTypes, ArrayTypes
 from datetime import datetime, date
 
 
@@ -204,7 +204,7 @@ class MatchBelongOperator(MatchKeyOperator):
 
     def __init__(self, key, value):
         super(MatchBelongOperator, self).__init__(key, value)
-        if isinstance(value, collections.Iterable):
+        if isinstance(value, ArrayTypes):
             super(MatchBelongOperator, self).__init__(key, value)
         else:
             raise self.make_error("the %s operator requires iterable" % self.name)
@@ -806,10 +806,10 @@ class GroupUnaryOperator(GroupOperator):
         if not Value.is_doc_ref_key(value):
             if isinstance(value, dict):
                 if len(value) == 1:
-                    self.value = OperatorFactory.new_project(key, value)
+                    self.value = OperatorFactory.new_project(key, value, expr=True)
                 else:
                     raise self.make_error("aggregating group operator must contain exactly one field")
-            elif isinstance(value, collections.Iterable):
+            elif isinstance(value, ArrayTypes):
                 raise self.make_error("aggregating group operators are unary (%s)" % self.name)
 
 

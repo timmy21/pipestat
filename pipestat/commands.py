@@ -8,7 +8,7 @@ from pipestat.errors import PipelineError, CommandError, LimitCompleted
 from pipestat.operator import OperatorFactory, ProjectOperator
 from pipestat.models import Document, undefined
 from pipestat.utils import Value, isNumberType
-from pipestat.constants import ASCENDING, DESCENDING
+from pipestat.constants import ASCENDING, DESCENDING, ArrayTypes
 
 
 _commands = {}
@@ -291,7 +291,7 @@ class UnwindCommand(Command):
     def feed(self, document):
         vals = document.get(self.value[1:], undefined)
         if vals != undefined:
-            if not isinstance(vals, collections.Iterable):
+            if not isinstance(vals, ArrayTypes):
                 raise self.make_error("$unwind value at end of field path must be an array")
 
             for v in vals:
