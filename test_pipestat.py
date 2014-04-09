@@ -7,6 +7,7 @@ from pipestat.commands import (
     MatchCommand, ProjectCommand, GroupCommand,
     SortCommand, SkipCommand, LimitCommand, UnwindCommand
 )
+from pipestat.errors import PipelineError, OperatorError, CommandError
 from pipestat import pipestat
 
 
@@ -663,8 +664,66 @@ class UnwindCommandTest(unittest.TestCase):
         ])
 
 
+class ErrorsTest(unittest.TestCase):
 
-class ExamplesTest(unittest.TestCase):
+    def test_project(self):
+        dataset = []
+        # parameter type error
+        with self.assertRaises(OperatorError):
+            pipestat(dataset, [
+                {
+                    "$project": {
+                        "elapse": {"$add": [1, {"$extract": ["$_event", "elapse:(\S*)"]}]}
+                    }
+                }
+            ])
+
+        # $expressions with inclusion field
+        with self.assertRaises(OperatorError):
+            pipestat(dataset, [
+                {
+                    "$project": {
+                        "elapse": {"$add": [{"elapse": 1}, 1]}
+                    }
+                }
+            ])
+
+        # dotted field only support for  top-level
+        with self.assertRaises(CommandError):
+            pipestat(dataset, [
+                {
+                    "$project": {
+                        "values": {"elapse.min": "$elapse"}
+                    }
+                }
+            ])
+
+    def test_group(self):
+        dataset = []
+        # $expressions with inclusion field
+        with self.assertRaises(OperatorError):
+            pipestat(dataset, [
+                {
+                    "$group": {
+                        "_id": None,
+                        "elapse": {"$sum": {"elapse": 1}}
+                    }
+                }
+            ])
+
+        # $group operator only support single parameter
+        with self.assertRaises(OperatorError):
+            pipestat(dataset, [
+                {
+                    "$group": {
+                        "_id": None,
+                        "elapse": {"$sum": [1, 2]}
+                    }
+                }
+            ])
+
+
+class Examples1Test(unittest.TestCase):
 
     def setUp(self):
         self.dataset = [

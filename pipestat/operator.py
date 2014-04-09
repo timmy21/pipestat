@@ -3,9 +3,8 @@
 import re
 import time
 import string
-import collections
 import types
-from pipestat.errors import OperatorError, CommandError
+from pipestat.errors import PipelineError, CommandError, OperatorError
 from pipestat.utils import Value, isNumberType, isDateType
 from pipestat.models import Document, undefined
 from pipestat.constants import NumberTypes, DateTypes, ArrayTypes
@@ -59,7 +58,7 @@ class OperatorFactory(object):
     @staticmethod
     def new_group(key, value):
         if not isinstance(value, dict):
-            raise CommandError("the $group aggregate field '%s' must be defined as an expression inside an object" % key)
+            raise PipelineError("the $group aggregate field '%s' must be defined as an expression inside an object" % key)
 
         if len(value) == 1:
             name = value.keys()[0]
@@ -769,7 +768,7 @@ class ProjectCombineOperator(ProjectOperator):
         for k, v in value.iteritems():
             if "." in k:
                 raise CommandError("dotted field names are only allowed at the top level", self.command)
-            combined_ops[k] = OperatorFactory.new_project("%s.%s" %(key, k), v)
+            combined_ops[k] = OperatorFactory.new_project("%s.%s" %(key, k), v, expr=expr)
         self.combined_ops = combined_ops
 
     def eval(self, document):
@@ -805,10 +804,7 @@ class GroupUnaryOperator(GroupOperator):
         super(GroupUnaryOperator, self).__init__(key, value)
         if not Value.is_doc_ref_key(value):
             if isinstance(value, dict):
-                if len(value) == 1:
-                    self.value = OperatorFactory.new_project(key, value, expr=True)
-                else:
-                    raise self.make_error("aggregating group operator must contain exactly one field")
+                self.value = OperatorFactory.new_project(key, value, expr=True)
             elif isinstance(value, ArrayTypes):
                 raise self.make_error("aggregating group operators are unary (%s)" % self.name)
 
