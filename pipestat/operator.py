@@ -398,7 +398,7 @@ class ProjectExtractOperator(ProjectOperator):
             m = self.value[1].search(v)
             if m:
                 if self.key in m.groupdict():
-                    return m.groupdict()[self.key]
+                    return m.groupdict()["extract"]
                 elif len(m.groups()) > 0:
                     return m.group(1)
                 else:

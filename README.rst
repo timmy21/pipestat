@@ -168,8 +168,20 @@ See this `mongo aggregation $project
 $project command support basic operators: $add, $substract, $multiply, $divide, $mod, $toLower, $toUpper, $concat and Date operators.
 in addition to this, pipestat $project command support more, like **$toNumber**, **$extract**, **$timestamp**, **$call**.
 
+$toNumber operator use to convert string to number.
+
+.. code:: python
+
+    >>> pipeline = [
+    ...    {
+    ...        "$project": {
+    ...            "elapse": {"$toNumber": "$elapse"},
+    ...        },
+    ...    },
+    ... ]
+
 $extract operator use to extract field from other field use regular expression,
-value first find groupdict()[FIELD], next find group(1), final use group(), use like below:
+value fetch order is groupdict()["extract"] >  group(1) > group(), use like below:
 
 .. code:: python
 
@@ -203,7 +215,7 @@ $call operator used for advance purpose if all above cannot satisfy you, use lik
 
 .. code:: python
 
-    >>> slot_ts = lambda x: x["ts"] // 300 * 300
+    >>> slot_ts = lambda document: document["ts"] // 300 * 300
 
     >>> pipeline = [
     ...    {
@@ -213,7 +225,7 @@ $call operator used for advance purpose if all above cannot satisfy you, use lik
     ...    },
     ... ]
 
-pipestat $project command **support nest operator** like below:
+pipestat $project command **support combine operator** like below:
 
 .. code:: python
 
@@ -250,6 +262,62 @@ see a example as below:
     ...            "min_elapse": {"$min": "$elapse"},
     ...            "max_elapse": {"$max": "$elapse"},
     ...            "sum_elapse": {"$sum": "$elapse"},
+    ...        }
+    ...    },
+    ... ]
+
+$concatToSet operator used to merge many list values or single values to one list which without same value.
+
+.. code:: python
+
+    >>> pipeline = [
+    ...    {
+    ...        "$group": {
+    ...            "_id": {
+    ...                "app": "$app",
+    ...            },
+    ...            "action": {"$concatToSet": "$action"},
+    ...        }
+    ...    },
+    ... ]
+
+$concatToList operator work same with $concatToSet but final list can have same value.
+
+.. code:: python
+
+    >>> pipeline = [
+    ...    {
+    ...        "$group": {
+    ...            "_id": {
+    ...                "app": "$app",
+    ...            },
+    ...            "action": {"$concatToList": "$action"},
+    ...        }
+    ...    },
+    ... ]
+
+$call operator used for advance purpose if all above cannot satisfy you, use like below:
+$call is very like python built-in reduce function.
+it's second paramter is accumulate result, initial value is **undefined**.
+
+.. code:: python
+
+    >>> def filter_concat(document, acc_val):
+    ...    if(acc_val == undefined):
+    ...        acc_val = []
+    ...    if(document["action"] != "refresh"):
+    ...        acc_val.append(document["action"])
+    ...    return acc_val
+
+    >>> pipeline = [
+    ...    {
+    ...        "$group": {
+    ...            "_id": {
+    ...                "app": "$app",
+    ...            },
+    ...            "action": {
+    ...                "$call": filter_concat
+    ...            },
     ...        }
     ...    },
     ... ]
