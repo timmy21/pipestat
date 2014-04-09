@@ -124,7 +124,17 @@ $match pipes the documents that match its conditions to the next operator in the
 See this `mongo aggregation $match
 <http://docs.mongodb.org/manual/reference/operator/aggregation/match/>`_ for more.
 
-$match command support basic operators: $and, $or, $gt, $gte, $lt, $lte, $ne, $eq, $in, $nin.
+$match command support basic operators:
+ `$and <http://docs.mongodb.org/manual/reference/operator/query/and/>`_,
+ `$or <http://docs.mongodb.org/manual/reference/operator/query/or/>`_,
+ `$gt <http://docs.mongodb.org/manual/reference/operator/query/gt/>`_,
+ `$gte <http://docs.mongodb.org/manual/reference/operator/query/gte/>`_,
+ `$lt <http://docs.mongodb.org/manual/reference/operator/query/lt/>`_,
+ `$lte <http://docs.mongodb.org/manual/reference/operator/query/lte/>`_,
+ `$ne <http://docs.mongodb.org/manual/reference/operator/query/ne/>`_,
+ `$eq <http://docs.mongodb.org/manual/reference/operator/aggregation/eq/>`_,
+ `$in <http://docs.mongodb.org/manual/reference/operator/query/in/>`_,
+ `$nin <http://docs.mongodb.org/manual/reference/operator/query/nin/>`.
 in addition to this, pipestat $match command support more, like **$regexp**, **$call**.
 
 $regex operator use regular expression to match specify field value, use like below:
@@ -165,7 +175,16 @@ Reshapes a document stream by renaming, adding, or removing fields. Also use $pr
 See this `mongo aggregation $project
 <http://docs.mongodb.org/manual/reference/operator/aggregation/project/>`_ for more.
 
-$project command support basic operators: $add, $substract, $multiply, $divide, $mod, $toLower, $toUpper, $concat and Date operators.
+$project command support basic operators:
+ `$add <http://docs.mongodb.org/manual/reference/operator/aggregation/add/>`_,
+ `$substract <http://docs.mongodb.org/manual/reference/operator/aggregation/subtract/>`_,
+ `$multiply <http://docs.mongodb.org/manual/reference/operator/aggregation/multiply/>`_,
+ `$divide <http://docs.mongodb.org/manual/reference/operator/aggregation/divide/>`_,
+ `$mod <http://docs.mongodb.org/manual/reference/operator/aggregation/mod/>`_,
+ `$toLower <http://docs.mongodb.org/manual/reference/operator/aggregation/toLower/>`_,
+ `$toUpper <http://docs.mongodb.org/manual/reference/operator/aggregation/toUpper/>`_,
+ `$concat <http://docs.mongodb.org/manual/reference/operator/aggregation/concat/>`_ and
+ `Date operators <http://docs.mongodb.org/manual/reference/operator/aggregation-date/>`_.
 in addition to this, pipestat $project command support more, like **$toNumber**, **$extract**, **$timestamp**, **$call**.
 
 $toNumber operator use to convert string to number.
@@ -245,7 +264,14 @@ In practice, $group often supports tasks such as average page views for each pag
 See this `mongo aggregation $group
 <http://docs.mongodb.org/manual/reference/operator/aggregation/group/>`_ for more.
 
-$group command support basic operators: $sum, $min, $max, $first, $last, $addToSet, $push.
+$group command support basic operators:
+ `$sum <http://docs.mongodb.org/manual/reference/operator/aggregation/sum/>`_,
+ `$min <http://docs.mongodb.org/manual/reference/operator/aggregation/min/>`_,
+ `$max <http://docs.mongodb.org/manual/reference/operator/aggregation/max/>`_,
+ `$first <http://docs.mongodb.org/manual/reference/operator/aggregation/first/>`_,
+ `$last <http://docs.mongodb.org/manual/reference/operator/aggregation/last/>`_,
+ `$addToSet <http://docs.mongodb.org/manual/reference/operator/aggregation/addToSet/>`_,
+ `$push <http://docs.mongodb.org/manual/reference/operator/aggregation/push/>`_.
 in addition to this, pipestat $group command support more, like **$concatToSet**, **$concatList**, **$call**.
 see a example as below:
 
