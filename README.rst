@@ -296,16 +296,17 @@ $concatToList operator work same with $concatToSet but final list can have same 
     ...    },
     ... ]
 
-$call operator used for advance purpose if all above cannot satisfy you, use like below:
-$call is very like python built-in reduce function.
-it's second paramter is accumulate result, initial value is **undefined**.
+$call operator used for advance purpose if all above cannot satisfy you, $call is very like python built-in reduce function.
+it's second paramter is accumulate result, initial value is customed **undefined**.
 
 .. code:: python
 
+    >>> from pipestat import pipestat, undefined
+
     >>> def filter_concat(document, acc_val):
-    ...    if(acc_val == undefined):
+    ...    if acc_val == undefined:
     ...        acc_val = []
-    ...    if(document["action"] != "refresh"):
+    ...    if document["action"] != "refresh":
     ...        acc_val.append(document["action"])
     ...    return acc_val
 
