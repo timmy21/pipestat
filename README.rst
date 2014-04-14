@@ -19,7 +19,7 @@ extract fields from event, and then stat count and elapse:
     >>> pipeline = [
     ...     {
     ...         "$match": {
-    ...             "_event": {"$regex": "Collect\s*app:.*timeline.*end.*elapse"},
+    ...             "_event": {"$regex": "Collect.*timeline\s+end"},
     ...         },
     ...     },
     ...     {
@@ -146,7 +146,7 @@ $regex operator use regular expression to match specify field value, use like be
     >>> pipeline = [
     ...    {
     ...        "$match": {
-    ...            "_event": {"$regex": "Collect\s*app:.*timeline.*end.*elapse"},
+    ...            "_event": {"$regex": "Collect.*timeline\s+end"},
     ...        },
     ...    },
     ... ]

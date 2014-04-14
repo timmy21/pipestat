@@ -798,7 +798,7 @@ class Examples1Test(unittest.TestCase):
         pipeline = [
            {
                "$match": {
-                   "_event": {"$regex": "Collect\s*app:.*timeline.*end.*elapse"},
+                   "_event": {"$regex": "Collect.*timeline\s+end"},
                },
            },
            {
@@ -885,7 +885,7 @@ class Examples1Test(unittest.TestCase):
         pipeline = [
             {
                 "$match": {
-                    "_event": {"$regex": "Collect\s*app:.*timeline.*end.*elapse"},
+                    "_event": {"$regex": "Collect.*timeline\s+end"},
                 },
             },
             {
