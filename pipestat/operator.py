@@ -148,16 +148,16 @@ class MatchKeyElemOperator(MatchKeyOperator):
             return self._eval_val(doc_val, document)
 
 
-class MatchRegexpOperator(MatchKeyElemOperator):
+class MatchRegexOperator(MatchKeyElemOperator):
 
-    name = "$regexp"
+    name = "$regex"
 
     def __init__(self, key, value):
-        super(MatchRegexpOperator, self).__init__(key, value)
+        super(MatchRegexOperator, self).__init__(key, value)
         try:
             self.pat = re.compile(value)
         except Exception:
-            raise self.make_error("the $regexp operator requires regular expression")
+            raise self.make_error("the $regex operator requires regular expression")
 
     def _eval_val(self, doc_val, document):
         if not isinstance(doc_val, basestring):

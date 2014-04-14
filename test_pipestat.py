@@ -37,7 +37,7 @@ class MatchCommandTest(unittest.TestCase):
 
     def test_regexp(self):
         cmd = MatchCommand({
-            "app": {"$regexp": "app\d+"}
+            "app": {"$regex": "app\d+"}
         })
         cmd.feed(Document({"app": "app2", "elapse": 3}))
         cmd.feed(Document({"app": "test", "elapse": 5}))
@@ -798,7 +798,7 @@ class Examples1Test(unittest.TestCase):
         pipeline = [
            {
                "$match": {
-                   "_event": {"$regexp": "Collect\s*app:.*timeline.*end.*elapse"},
+                   "_event": {"$regex": "Collect\s*app:.*timeline.*end.*elapse"},
                },
            },
            {
@@ -885,7 +885,7 @@ class Examples1Test(unittest.TestCase):
         pipeline = [
             {
                 "$match": {
-                    "_event": {"$regexp": "Collect\s*app:.*timeline.*end.*elapse"},
+                    "_event": {"$regex": "Collect\s*app:.*timeline.*end.*elapse"},
                 },
             },
             {

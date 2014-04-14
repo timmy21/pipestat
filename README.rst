@@ -19,7 +19,7 @@ extract fields from event, and then stat count and elapse:
     >>> pipeline = [
     ...     {
     ...         "$match": {
-    ...             "_event": {"$regexp": "Collect\s*app:.*timeline.*end.*elapse"},
+    ...             "_event": {"$regex": "Collect\s*app:.*timeline.*end.*elapse"},
     ...         },
     ...     },
     ...     {
@@ -137,7 +137,7 @@ $match command support basic operators:
  `$nin <http://docs.mongodb.org/manual/reference/operator/query/nin/>`_,
  `$all <http://docs.mongodb.org/manual/reference/operator/query/all/>`_,
  `$elemMatch <http://docs.mongodb.org/manual/reference/operator/query/elemMatch/>`_
-in addition to this, pipestat $match command support more, like **$regexp**, **$call**.
+in addition to this, pipestat $match command support more, like **$regex**, **$call**.
 
 $regex operator use regular expression to match specify field value, use like below:
 
@@ -146,7 +146,7 @@ $regex operator use regular expression to match specify field value, use like be
     >>> pipeline = [
     ...    {
     ...        "$match": {
-    ...            "_event": {"$regexp": "Collect\s*app:.*timeline.*end.*elapse"},
+    ...            "_event": {"$regex": "Collect\s*app:.*timeline.*end.*elapse"},
     ...        },
     ...    },
     ... ]
