@@ -139,6 +139,16 @@ class MatchCommandTest(unittest.TestCase):
             Document({"app": "app2", "elapse": 3}),
         ])
 
+    def test_all(self):
+        cmd = MatchCommand({
+            "app": {"$all": ["app1", "app3"]},
+        })
+        cmd.feed(Document({"app": ["app2"], "elapse": 3}))
+        cmd.feed(Document({"app": ["app1", "app2", "app3"], "elapse": 1}))
+        self.assertListEqual(cmd.result(), [
+            Document({"app": ["app1", "app2", "app3"], "elapse": 1}),
+        ])
+
     def test_call(self):
         cmd = MatchCommand({
             "$call": lambda doc: doc["elapse"]%2 == 0,
@@ -189,6 +199,27 @@ class MatchCommandTest(unittest.TestCase):
         self.assertListEqual(cmd.result(), [
             Document({"app": "app2", "elapse": 3}),
             Document({"app": "app1", "elapse": 1}),
+        ])
+
+    def test_elemMatch(self):
+        cmd = MatchCommand({
+            "students.name": "jan",
+            "students.school": 23,
+        })
+        cmd.feed(Document({"students": [{"name": "jan", "school": 23}]}))
+        cmd.feed(Document({"students": [{"name": "jan", "school": 66}, {"name": "manu", "school": 23}]}))
+        self.assertListEqual(cmd.result(), [
+            Document({"students": [{"name": "jan", "school": 23}]}),
+            Document({"students": [{"name": "jan", "school": 66}, {"name": "manu", "school": 23}]})
+        ])
+
+        cmd = MatchCommand({
+            "students": {"$elemMatch": {"name": "jan", "school": 23}}
+        })
+        cmd.feed(Document({"students": [{"name": "jan", "school": 23}]}))
+        cmd.feed(Document({"students": [{"name": "jan", "school": 66}, {"name": "manu", "school": 23}]}))
+        self.assertListEqual(cmd.result(), [
+            Document({"students": [{"name": "jan", "school": 23}]})
         ])
 
 

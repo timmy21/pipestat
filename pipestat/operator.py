@@ -110,6 +110,23 @@ class MatchOperator(Operator):
         raise NotImplemented()
 
 
+class MatchElemOperator(MatchOperator):
+
+    def __init__(self, value):
+        self.operators = []
+        if isinstance(value, dict):
+            for k, v in value.iteritems():
+                self.operators.append(OperatorFactory.new_match(k, v))
+        else:
+            raise self.make_error('element match must be object')
+
+    def match(self, document):
+        for op in self.operators:
+            if not op.match(document):
+                return False
+        return True
+
+
 class MatchKeyOperator(MatchOperator):
 
     def __init__(self, key, value):
@@ -240,6 +257,52 @@ class MatchNotInOperator(MatchBelongOperator):
         return doc_val not in value
 
 
+class MatchAllOperator(MatchKeyOperator):
+
+    name = "$all"
+
+    def __init__(self, key, value):
+        super(MatchAllOperator, self).__init__(key, value)
+        if not isinstance(value, ArrayTypes):
+            raise self.make_error("thie $all operator require array")
+
+    def eval(self, document):
+        doc_val = document.get(self.key, undefined)
+        if doc_val == undefined:
+            return False
+        if not isinstance(doc_val, ArrayTypes):
+            doc_val = [doc_val]
+        for v in self.value:
+            if v not in doc_val:
+                return False
+        return True
+
+
+
+class MatchElemMatchOperator(MatchKeyOperator):
+
+    name = "$elemMatch"
+
+    def __init__(self, key, value):
+        super(MatchElemMatchOperator, self).__init__(key, value)
+        if isinstance(value, dict):
+            self.value = MatchElemOperator(value)
+        else:
+            raise self.make_error("the $elemMatch operator requires an object")
+
+    def eval(self, document):
+        doc_val = document.get(self.key, undefined)
+        if isinstance(doc_val, ArrayTypes):
+            for v in doc_val:
+                if isinstance(v, dict):
+                    m = self.value.match(v)
+                    if m:
+                        return True
+            return False
+        else:
+            return False
+
+
 class MatchCallOperator(MatchOperator):
 
     name = "$call"
@@ -255,21 +318,6 @@ class MatchCallOperator(MatchOperator):
         return False
 
 
-class LogicSubOperator(object):
-
-    def __init__(self):
-        self.operators = []
-
-    def add(self, op):
-        self.operators.append(op)
-
-    def match(self, document):
-        for op in self.operators:
-            if not op.match(document):
-                return False
-        return True
-
-
 class MatchLogicOperator(MatchOperator):
 
     def __init__(self, value):
@@ -277,13 +325,7 @@ class MatchLogicOperator(MatchOperator):
         if isinstance(value, list):
             sub_ops = []
             for sub_op in value:
-                if isinstance(sub_op, dict):
-                    sop = LogicSubOperator()
-                    for k, v in sub_op.iteritems():
-                        sop.add(OperatorFactory.new_match(k, v))
-                    sub_ops.append(sop)
-                else:
-                    raise self.make_error('%s match element must be object' % self.name)
+                sub_ops.append(MatchElemOperator(sub_op))
             self.sub_ops = sub_ops
         else:
             raise self.make_error('the %s operator requires a nonempty list' % self.name)
