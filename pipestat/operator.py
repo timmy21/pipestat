@@ -117,7 +117,21 @@ class MatchKeyOperator(MatchOperator):
         self.value = value
 
 
-class MatchRegexpOperator(MatchKeyOperator):
+class MatchKeyElemOperator(MatchKeyOperator):
+
+    def eval(self, document):
+        doc_val = document.get(self.key, undefined)
+        if isinstance(doc_val, ArrayTypes):
+            for v in doc_val:
+                m = self._eval_val(v, document)
+                if m:
+                    return True
+            return False
+        else:
+            return self._eval_val(doc_val, document)
+
+
+class MatchRegexpOperator(MatchKeyElemOperator):
 
     name = "$regexp"
 
@@ -128,8 +142,7 @@ class MatchRegexpOperator(MatchKeyOperator):
         except Exception:
             raise self.make_error("the $regexp operator requires regular expression")
 
-    def eval(self, document):
-        doc_val = document.get(self.key)
+    def _eval_val(self, doc_val, document):
         if not isinstance(doc_val, basestring):
             return False
         m = self.pat.search(doc_val)
@@ -138,14 +151,10 @@ class MatchRegexpOperator(MatchKeyOperator):
         return False
 
 
-class MatchCmpOperator(MatchKeyOperator):
+class MatchCmpOperator(MatchKeyElemOperator):
 
-    def eval(self, document):
-        doc_val = document.get(self.key, undefined)
-        value = self.value
-        if Value.is_doc_ref_key(value):
-            value = document.get(value[1:], undefined)
-        return self.cmp(doc_val, value)
+    def _eval_val(self, doc_val, document):
+        return self.cmp(doc_val, self.value)
 
     def cmp(self, doc_val, value):
         raise NotImplementedError()
@@ -199,7 +208,7 @@ class MatchNotEqualOperator(MatchCmpOperator):
         return doc_val != value
 
 
-class MatchBelongOperator(MatchKeyOperator):
+class MatchBelongOperator(MatchKeyElemOperator):
 
     def __init__(self, key, value):
         super(MatchBelongOperator, self).__init__(key, value)
@@ -208,8 +217,7 @@ class MatchBelongOperator(MatchKeyOperator):
         else:
             raise self.make_error("the %s operator requires iterable" % self.name)
 
-    def eval(self, document):
-        doc_val = document.get(self.key, undefined)
+    def _eval_val(self, doc_val, document):
         return self.belong(doc_val, self.value)
 
     def belong(self, doc_val, value):

@@ -11,6 +11,28 @@ from pipestat.errors import PipelineError, OperatorError, CommandError
 from pipestat import pipestat
 
 
+
+class DocumentTest(unittest.TestCase):
+
+    def test1(self):
+        doc = {
+            "ips": [
+                {"ip": "192.168.198.1"},
+                {"ip": "192.168.198.2"}
+            ],
+        }
+        self.assertEqual(Document(doc).get("ips.ip"), ["192.168.198.1", "192.168.198.2"])
+
+        doc = {
+            "address": [{
+                "ips": [
+                    {"ip": "192.168.198.1"},
+                    {"ip": "192.168.198.2"}
+                ],
+            }]
+        }
+        self.assertEqual(Document(doc).get("address.ips.ip"), [["192.168.198.1", "192.168.198.2"]])
+
 class MatchCommandTest(unittest.TestCase):
 
     def test_regexp(self):

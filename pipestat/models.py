@@ -1,6 +1,7 @@
 # -*- coding: utf-8 -*-
 
 import copy
+from pipestat.constants import ArrayTypes
 
 
 class _Undefined(object):
@@ -41,8 +42,14 @@ class Document(dict):
         parts = key.split(".")
         doc = self
         try:
-            for part in parts:
+            for i, part in enumerate(parts):
                 doc = doc[part]
+                if isinstance(doc, ArrayTypes):
+                    remain_parts = ".".join(parts[i+1:])
+                    if remain_parts:
+                        doc = map(lambda x: Document(x).get(remain_parts, undefined), doc)
+                        doc = filter(lambda x: x != undefined, doc)
+                    break
         except Exception:
             return default
         return copy.deepcopy(doc)
