@@ -134,8 +134,8 @@ $match command support basic operators:
  `$ne <http://docs.mongodb.org/manual/reference/operator/query/ne/>`_,
  `$eq <http://docs.mongodb.org/manual/reference/operator/aggregation/eq/>`_,
  `$in <http://docs.mongodb.org/manual/reference/operator/query/in/>`_,
- `$nin <http://docs.mongodb.org/manual/reference/operator/query/nin/>`,
- `$all <http://docs.mongodb.org/manual/reference/operator/query/all/>`,
+ `$nin <http://docs.mongodb.org/manual/reference/operator/query/nin/>`_,
+ `$all <http://docs.mongodb.org/manual/reference/operator/query/all/>`_,
  `$elemMatch <http://docs.mongodb.org/manual/reference/operator/query/elemMatch/>`_
 in addition to this, pipestat $match command support more, like **$regexp**, **$call**.
 
