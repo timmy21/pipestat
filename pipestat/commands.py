@@ -167,9 +167,12 @@ class GroupCommand(Command):
 
     def _make_result(self):
         rets = []
-        for k, v in self._id_docs.iteritems():
-            k = json.loads(k)
-            rets.append(Document(dict(k, **v)))
+        for id_k, id_v in self._id_docs.iteritems():
+            item = Document(json.loads(id_k))
+            for k, op in self.operators.iteritems():
+                v = op.result(id_v.get(k))
+                item.set(k, v)
+            rets.append(item)
         return rets
 
     def _valid_id(self, id_v):

@@ -915,6 +915,9 @@ class GroupOperator(Operator):
     def eval(self, document, acc_val):
         raise NotImplementedError()
 
+    def result(self, acc_val):
+        return acc_val
+
 
 class GroupUnaryOperator(GroupOperator):
 
@@ -1004,11 +1007,14 @@ class GroupAddToSetOperator(GroupUnaryOperator):
 
     def eval(self, document, acc_val):
         if acc_val == undefined:
-            acc_val = []
+            acc_val = set()
         value = self.get_value(document, undefined)
-        if value != undefined and value not in acc_val:
-            acc_val.append(value)
+        if value != undefined:
+            acc_val.add(value)
         return acc_val
+
+    def result(self, acc_val):
+        return list(acc_val)
 
 
 class GroupPushOperator(GroupUnaryOperator):
@@ -1030,11 +1036,14 @@ class GroupConcatToSetOperator(GroupUnaryOperator):
 
     def eval(self, document, acc_val):
         if acc_val == undefined:
-            acc_val = []
+            acc_val = set()
         value = self.get_value(document, undefined)
         if value != undefined:
-            acc_val = list(set(acc_val + list(value)))
+            acc_val = acc_val | set(list(value))
         return acc_val
+
+    def result(self, acc_val):
+        return list(acc_val)
 
 
 class GroupConcatToListOperator(GroupUnaryOperator):

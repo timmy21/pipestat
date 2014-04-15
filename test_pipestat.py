@@ -972,7 +972,7 @@ class Examples1Test(unittest.TestCase):
         ]
         results = pipestat(self.dataset, pipeline)
         self.assertEqual(results, [
-            {"app": "app37", "actions": ["REFRESH", "CACHED"]},
+            {"app": "app37", "actions": ["CACHED", "REFRESH"]},
             {"app": "app40", "actions": ["REFRESH"]},
         ])
 
