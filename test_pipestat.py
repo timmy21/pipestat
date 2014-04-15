@@ -35,6 +35,25 @@ class DocumentTest(unittest.TestCase):
 
 class MatchCommandTest(unittest.TestCase):
 
+    def test_exists(self):
+        cmd = MatchCommand({
+            "app": {"$exists": True}
+        })
+        cmd.feed(Document({"app": "app2", "elapse": 3}))
+        cmd.feed(Document({"elapse": 5}))
+        self.assertListEqual(cmd.result(), [
+            Document({"app": "app2", "elapse": 3}),
+        ])
+
+        cmd = MatchCommand({
+            "app": {"$exists": False}
+        })
+        cmd.feed(Document({"app": "app2", "elapse": 3}))
+        cmd.feed(Document({"elapse": 5}))
+        self.assertListEqual(cmd.result(), [
+            Document({"elapse": 5}),
+        ])
+
     def test_regexp(self):
         cmd = MatchCommand({
             "app": {"$regex": "app\d+"}

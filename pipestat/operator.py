@@ -148,6 +148,24 @@ class MatchKeyElemOperator(MatchKeyOperator):
             return self._eval_val(doc_val, document)
 
 
+class MatchExistsOperator(MatchKeyOperator):
+
+    name = "$exists"
+
+    def __init__(self, key, value):
+        super(MatchExistsOperator, self).__init__(key, value)
+        if not value in [0, 1, True, False]:
+            self.make_error("the $exists operator requires bool")
+
+    def eval(self, document):
+        doc_val = document.get(self.key, undefined)
+        if self.value and doc_val != undefined:
+            return True
+        elif not self.value and doc_val == undefined:
+            return True
+        return False
+
+
 class MatchRegexOperator(MatchKeyElemOperator):
 
     name = "$regex"

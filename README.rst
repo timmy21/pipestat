@@ -125,6 +125,7 @@ See this `mongo aggregation $match
 <http://docs.mongodb.org/manual/reference/operator/aggregation/match/>`_ for more.
 
 $match command support basic operators:
+ `$exists <http://docs.mongodb.org/manual/reference/operator/query/exists/>`_,
  `$gt <http://docs.mongodb.org/manual/reference/operator/query/gt/>`_,
  `$gte <http://docs.mongodb.org/manual/reference/operator/query/gte/>`_,
  `$lt <http://docs.mongodb.org/manual/reference/operator/query/lt/>`_,
