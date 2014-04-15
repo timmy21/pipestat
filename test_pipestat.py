@@ -230,6 +230,21 @@ class MatchCommandTest(unittest.TestCase):
             Document({"app": "app1"}),
         ])
 
+    def test_mod(self):
+        cmd = MatchCommand({
+            "elapse": {
+                "$mod": [2, 0]
+            }
+        })
+        cmd.feed(Document({"app": "app2", "elapse": 0}))
+        cmd.feed(Document({"app": "app1", "elapse": 1}))
+        cmd.feed(Document({"app": "app1", "elapse": 4}))
+        cmd.feed(Document({"app": "app1"}))
+        self.assertListEqual(cmd.result(), [
+            Document({"app": "app2", "elapse": 0}),
+            Document({"app": "app1", "elapse": 4}),
+        ])
+
     def test_combine(self):
         cmd = MatchCommand({
             "elapse": {"$gte": 1, "$lt": 4}

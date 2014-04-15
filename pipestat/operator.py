@@ -188,6 +188,36 @@ class MatchRegexOperator(MatchKeyElemOperator):
         return False
 
 
+class MatchModOperator(MatchKeyElemOperator):
+
+    name = "$mod"
+
+    def __init__(self, key, value):
+        super(MatchModOperator, self).__init__(key, value)
+        if not isinstance(value, ArrayTypes):
+            self.make_error("the $mod operator requires array type")
+
+        vcount = len(value)
+        if vcount < 2:
+            self.make_error("BadValue malformed $mod, not enough elements")
+        elif vcount > 2:
+            self.make_error("BadValue malformed $mod, too many elements")
+
+        if not all(map(isNumberType, value)):
+            self.make_error("BadValue malformed $mod, elem value should be number")
+        value = map(int, value)
+        if value[0] == 0:
+            self.make_error("$mod can't be 0")
+        self.value = value
+
+    def _eval_val(self, doc_val, document):
+        if not isNumberType(doc_val):
+            return False
+        if int(doc_val) % self.value[0] == self.value[1]:
+            return True
+        return False
+
+
 class MatchCmpOperator(MatchKeyElemOperator):
 
     def _eval_val(self, doc_val, document):

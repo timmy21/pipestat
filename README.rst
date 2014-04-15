@@ -133,6 +133,7 @@ $match command support basic operators:
  `$ne <http://docs.mongodb.org/manual/reference/operator/query/ne/>`_,
  `$eq <http://docs.mongodb.org/manual/reference/operator/aggregation/eq/>`_,
  `$in <http://docs.mongodb.org/manual/reference/operator/query/in/>`_,
+ `$mod <http://docs.mongodb.org/manual/reference/operator/query/mod/>`_,
  `$and <http://docs.mongodb.org/manual/reference/operator/query/and/>`_,
  `$or <http://docs.mongodb.org/manual/reference/operator/query/or/>`_,
  `$not <http://docs.mongodb.org/manual/reference/operator/query/not/>`_,
