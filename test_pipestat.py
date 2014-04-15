@@ -53,6 +53,7 @@ class MatchCommandTest(unittest.TestCase):
         cmd.feed(Document({"app": "app2", "elapse": 3}))
         cmd.feed(Document({"app": "app1", "elapse": 1}))
         cmd.feed(Document({"app": "app1", "elapse": 4}))
+        cmd.feed(Document({"app": "app1"}))
         self.assertListEqual(cmd.result(), [
             Document({"app": "app1", "elapse": 1}),
         ])
@@ -64,6 +65,7 @@ class MatchCommandTest(unittest.TestCase):
         cmd.feed(Document({"app": "app2", "elapse": 3}))
         cmd.feed(Document({"app": "app1", "elapse": 1}))
         cmd.feed(Document({"app": "app1", "elapse": 4}))
+        cmd.feed(Document({"app": "app1"}))
         self.assertListEqual(cmd.result(), [
             Document({"app": "app2", "elapse": 3}),
             Document({"app": "app1", "elapse": 1}),
@@ -76,6 +78,7 @@ class MatchCommandTest(unittest.TestCase):
         cmd.feed(Document({"app": "app2", "elapse": 3}))
         cmd.feed(Document({"app": "app1", "elapse": 1}))
         cmd.feed(Document({"app": "app1", "elapse": 4}))
+        cmd.feed(Document({"app": "app1"}))
         self.assertListEqual(cmd.result(), [
             Document({"app": "app1", "elapse": 4}),
         ])
@@ -87,6 +90,7 @@ class MatchCommandTest(unittest.TestCase):
         cmd.feed(Document({"app": "app2", "elapse": 3}))
         cmd.feed(Document({"app": "app1", "elapse": 1}))
         cmd.feed(Document({"app": "app1", "elapse": 4}))
+        cmd.feed(Document({"app": "app1"}))
         self.assertListEqual(cmd.result(), [
             Document({"app": "app2", "elapse": 3}),
             Document({"app": "app1", "elapse": 4}),
@@ -100,6 +104,7 @@ class MatchCommandTest(unittest.TestCase):
         cmd.feed(Document({"app": "app2", "elapse": 3}))
         cmd.feed(Document({"app": "app1", "elapse": 1}))
         cmd.feed(Document({"app": "app1", "elapse": 4}))
+        cmd.feed(Document({"app": "app1"}))
         self.assertListEqual(cmd.result(), [
             Document({"app": "app2", "elapse": 3}),
         ])
@@ -111,9 +116,11 @@ class MatchCommandTest(unittest.TestCase):
         cmd.feed(Document({"app": "app2", "elapse": 3}))
         cmd.feed(Document({"app": "app1", "elapse": 1}))
         cmd.feed(Document({"app": "app1", "elapse": 4}))
+        cmd.feed(Document({"app": "app1"}))
         self.assertListEqual(cmd.result(), [
             Document({"app": "app1", "elapse": 1}),
             Document({"app": "app1", "elapse": 4}),
+            Document({"app": "app1"}),
         ])
 
     def test_in(self):
@@ -187,6 +194,21 @@ class MatchCommandTest(unittest.TestCase):
         self.assertListEqual(cmd.result(), [
             Document({"app": "app2", "elapse": 3}),
             Document({"app": "app1", "elapse": 1}),
+        ])
+
+    def test_not(self):
+        cmd = MatchCommand({
+            "elapse": {
+                "$not": {"$gte": 3}
+            }
+        })
+        cmd.feed(Document({"app": "app2", "elapse": 3}))
+        cmd.feed(Document({"app": "app1", "elapse": 1}))
+        cmd.feed(Document({"app": "app1", "elapse": 4}))
+        cmd.feed(Document({"app": "app1"}))
+        self.assertListEqual(cmd.result(), [
+            Document({"app": "app1", "elapse": 1}),
+            Document({"app": "app1"}),
         ])
 
     def test_combine(self):

@@ -15,20 +15,20 @@ class _Undefined(object):
         return not self.__eq__(other)
 
     def __lt__(self, other):
-        if isinstance(other, _Undefined):
-            return False
-        return True
+        return False
 
     def __le__(self, other):
-        return True
+        if isinstance(other, _Undefined):
+            return True
+        return False
 
     def __gt__(self, other):
-        if isinstance(other, _Undefined):
-            return False
-        return True
+        return False
 
     def __ge__(self, other):
-        return True
+        if isinstance(other, _Undefined):
+            return True
+        return False
 
     def __nonzero__(self):
         return False

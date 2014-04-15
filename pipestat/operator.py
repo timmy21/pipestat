@@ -154,15 +154,17 @@ class MatchRegexOperator(MatchKeyElemOperator):
 
     def __init__(self, key, value):
         super(MatchRegexOperator, self).__init__(key, value)
-        try:
-            self.pat = re.compile(value)
-        except Exception:
+        if isinstance(value, basestring):
+            self.value = re.compile(value)
+        elif hasattr(getattr(value, "search", None), "__call__"):
+            self.value = value
+        else:
             raise self.make_error("the $regex operator requires regular expression")
 
     def _eval_val(self, doc_val, document):
         if not isinstance(doc_val, basestring):
             return False
-        m = self.pat.search(doc_val)
+        m = self.value.search(doc_val)
         if m:
             return True
         return False
@@ -351,6 +353,24 @@ class MatchOrOperator(MatchLogicOperator):
             if sub_op.match(document):
                 return True
         return False
+
+
+class MatchNotOperator(MatchKeyOperator):
+
+    name = "$not"
+
+    def __init__(self, key, value):
+        super(MatchNotOperator, self).__init__(key, value)
+        if isinstance(value, dict):
+            self.value = OperatorFactory.new_match(key, value)
+        else:
+            self.make_error("invalid use of $not")
+
+    def eval(self, document):
+        if self.value.match(document):
+            return False
+        else:
+            return True
 
 
 class MatchCombineOperator(MatchKeyOperator):
@@ -890,7 +910,9 @@ class GroupMinOperator(GroupUnaryOperator):
 
     def eval(self, document, acc_val):
         value = self.get_value(document, undefined)
-        if value < acc_val:
+        if acc_val == undefined:
+            return value
+        elif value < acc_val:
             return value
         else:
             return acc_val
@@ -902,7 +924,9 @@ class GroupMaxOperator(GroupUnaryOperator):
 
     def eval(self, document, acc_val):
         value = self.get_value(document, undefined)
-        if value > acc_val:
+        if acc_val == undefined:
+            return value
+        elif value > acc_val:
             return value
         else:
             return acc_val

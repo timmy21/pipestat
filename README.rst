@@ -125,8 +125,6 @@ See this `mongo aggregation $match
 <http://docs.mongodb.org/manual/reference/operator/aggregation/match/>`_ for more.
 
 $match command support basic operators:
- `$and <http://docs.mongodb.org/manual/reference/operator/query/and/>`_,
- `$or <http://docs.mongodb.org/manual/reference/operator/query/or/>`_,
  `$gt <http://docs.mongodb.org/manual/reference/operator/query/gt/>`_,
  `$gte <http://docs.mongodb.org/manual/reference/operator/query/gte/>`_,
  `$lt <http://docs.mongodb.org/manual/reference/operator/query/lt/>`_,
@@ -134,6 +132,9 @@ $match command support basic operators:
  `$ne <http://docs.mongodb.org/manual/reference/operator/query/ne/>`_,
  `$eq <http://docs.mongodb.org/manual/reference/operator/aggregation/eq/>`_,
  `$in <http://docs.mongodb.org/manual/reference/operator/query/in/>`_,
+ `$and <http://docs.mongodb.org/manual/reference/operator/query/and/>`_,
+ `$or <http://docs.mongodb.org/manual/reference/operator/query/or/>`_,
+ `$not <http://docs.mongodb.org/manual/reference/operator/query/not/>`_,
  `$nin <http://docs.mongodb.org/manual/reference/operator/query/nin/>`_,
  `$all <http://docs.mongodb.org/manual/reference/operator/query/all/>`_,
  `$elemMatch <http://docs.mongodb.org/manual/reference/operator/query/elemMatch/>`_
