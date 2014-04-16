@@ -439,6 +439,32 @@ class ProjectCommandTest(unittest.TestCase):
             Document({"app": "APP1"}),
         ])
 
+    def test_substr(self):
+        cmd = ProjectCommand({
+            "app_no": {"$substr": ["$app", 3, 1]},
+        })
+        cmd.feed(Document({"app": "app2", "elapse": 3}))
+        cmd.feed(Document({"app": "App1", "elapse": 1}))
+        cmd.feed(Document({"app": "app1", "elapse": 4}))
+        self.assertListEqual(cmd.result(), [
+            Document({"app_no": "2"}),
+            Document({"app_no": "1"}),
+            Document({"app_no": "1"}),
+        ])
+
+    def test_substring(self):
+        cmd = ProjectCommand({
+            "app_no": {"$substring": ["$app", 3]},
+        })
+        cmd.feed(Document({"app": "app2", "elapse": 3}))
+        cmd.feed(Document({"app": "App1", "elapse": 1}))
+        cmd.feed(Document({"app": "app1", "elapse": 4}))
+        self.assertListEqual(cmd.result(), [
+            Document({"app_no": "2"}),
+            Document({"app_no": "1"}),
+            Document({"app_no": "1"}),
+        ])
+
     def test_toNumber(self):
         cmd = ProjectCommand({
             "elapse": {"$toNumber": "$elapse"},

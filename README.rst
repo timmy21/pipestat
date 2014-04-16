@@ -189,9 +189,10 @@ $project command support basic operators:
  `$mod <http://docs.mongodb.org/manual/reference/operator/aggregation/mod/>`_,
  `$toLower <http://docs.mongodb.org/manual/reference/operator/aggregation/toLower/>`_,
  `$toUpper <http://docs.mongodb.org/manual/reference/operator/aggregation/toUpper/>`_,
+ `$substr <http://docs.mongodb.org/manual/reference/operator/aggregation/substr/>`_,
  `$concat <http://docs.mongodb.org/manual/reference/operator/aggregation/concat/>`_ and
  `Date operators <http://docs.mongodb.org/manual/reference/operator/aggregation-date/>`_.
-in addition to this, pipestat $project command support more, like **$toNumber**, **$extract**, **$timestamp**, **$call**.
+in addition to this, pipestat $project command support more, like **$toNumber**, **$substring**, **$extract**, **$timestamp**, **$call**.
 
 $toNumber operator use to convert string to number.
 
@@ -201,6 +202,25 @@ $toNumber operator use to convert string to number.
     ...    {
     ...        "$project": {
     ...            "elapse": {"$toNumber": "$elapse"},
+    ...        },
+    ...    },
+    ... ]
+
+$substring returns a subset of a string between one index and another, or through the end of the string. it support negative index.
+
+.. code:: python
+
+    >>> pipeline = [
+    ...    {
+    ...        "$project": {
+    ...            "app": {"$substring": ["$app", 3, 5]},
+    ...        },
+    ...    },
+    ... ]
+    >>> pipeline = [
+    ...    {
+    ...        "$project": {
+    ...            "app": {"$substring": ["$app", 3]},
     ...        },
     ...    },
     ... ]

@@ -757,6 +757,95 @@ class ProjectConcatOperator(ProjectOperator):
         return "".join(rets)
 
 
+class ProjectSubstrOperator(ProjectOperator):
+
+    name = "$substr"
+    returnTypes = types.StringTypes
+
+    def __init__(self, key, value, expr=False):
+        super(ProjectSubstrOperator, self).__init__(key, value, expr=expr)
+        if isinstance(value, list) and len(value) == 3:
+            if not Value.is_doc_ref_key(value[0]):
+                if isinstance(value[0], dict):
+                    prj = OperatorFactory.new_project(key, value[0], expr=True)
+                    if (not prj.returnTypes) or (set(prj.returnTypes) & set(types.StringTypes)):
+                        self.value[0] = prj
+                    else:
+                        raise self.make_error("$substr source must be string type")
+                elif not isinstance(value[0], basestring):
+                    raise self.make_error("$substr source must be string type")
+
+            if not isNumberType(value[1]):
+                raise self.make_error("$substr start pos must be number type")
+            self.value[1] = int(value[1])
+
+            if not isNumberType(value[2]) or int(value[2]) < 0:
+                raise self.make_error("$substr number chars must be number type")
+            self.value[2] = self.value[1] + int(value[2])
+        else:
+            raise self.make_error("the $substr operator requires an array of three elements")
+
+    def eval(self, document):
+        v = self.value[0]
+        if isinstance(v, ProjectOperator):
+            v = v.eval(document)
+        elif Value.is_doc_ref_key(v):
+            v = document.get(v[1:])
+
+        if v == undefined:
+            return ""
+        elif not isinstance(v, basestring):
+            raise self.make_error("$substr source must be string type")
+        else:
+            return v[self.value[1]:self.value[2]]
+
+
+class ProjectSubstringOperator(ProjectOperator):
+
+    name = "$substring"
+    returnTypes = types.StringTypes
+
+    def __init__(self, key, value, expr=False):
+        super(ProjectSubstringOperator, self).__init__(key, value, expr=expr)
+        if isinstance(value, list) and (len(value) == 2 or len(value) == 3):
+            if not Value.is_doc_ref_key(value[0]):
+                if isinstance(value[0], dict):
+                    prj = OperatorFactory.new_project(key, value[0], expr=True)
+                    if (not prj.returnTypes) or (set(prj.returnTypes) & set(types.StringTypes)):
+                        self.value[0] = prj
+                    else:
+                        raise self.make_error("$substring source must be string type")
+                elif not isinstance(value[0], basestring):
+                    raise self.make_error("$substring source must be string type")
+
+            if not isNumberType(value[1]):
+                raise self.make_error("$substring start pos must be number type")
+            self.value[1] = int(value[1])
+
+            if len(value) == 3:
+                if not isNumberType(value[2]):
+                    raise self.make_error("$substring end pos must be number type")
+                self.value[2] = int(value[2])
+            else:
+                self.value = list(self.value) + [None]
+        else:
+            raise self.make_error("the $substring operator requires an array of two or three elements")
+
+    def eval(self, document):
+        v = self.value[0]
+        if isinstance(v, ProjectOperator):
+            v = v.eval(document)
+        elif Value.is_doc_ref_key(v):
+            v = document.get(v[1:])
+
+        if v == undefined:
+            return ""
+        elif not isinstance(v, basestring):
+            raise self.make_error("$substring source must be string type")
+        else:
+            return v[self.value[1]:self.value[2]]
+
+
 
 class ProjectDateOperator(ProjectOperator):
 
