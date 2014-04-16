@@ -215,6 +215,22 @@ class MatchCommandTest(unittest.TestCase):
             Document({"app": "app1", "elapse": 1}),
         ])
 
+    def test_nor(self):
+        cmd = MatchCommand({
+            "$nor": [
+                {"app": "app2"},
+                {"elapse": {"$gte": 1, "$lt": 4}}
+            ],
+        })
+        cmd.feed(Document({"app": "app2", "elapse": 3}))
+        cmd.feed(Document({"app": "app1", "elapse": 1}))
+        cmd.feed(Document({"app": "app1", "elapse": 4}))
+        cmd.feed(Document({"app": "app1"}))
+        self.assertListEqual(cmd.result(), [
+            Document({"app": "app1", "elapse": 4}),
+            Document({"app": "app1"}),
+        ])
+
     def test_not(self):
         cmd = MatchCommand({
             "elapse": {

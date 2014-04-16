@@ -136,6 +136,7 @@ $match command support basic operators:
  `$mod <http://docs.mongodb.org/manual/reference/operator/query/mod/>`_,
  `$and <http://docs.mongodb.org/manual/reference/operator/query/and/>`_,
  `$or <http://docs.mongodb.org/manual/reference/operator/query/or/>`_,
+ `$nor <http://docs.mongodb.org/manual/reference/operator/query/nor/>`_,
  `$not <http://docs.mongodb.org/manual/reference/operator/query/not/>`_,
  `$nin <http://docs.mongodb.org/manual/reference/operator/query/nin/>`_,
  `$all <http://docs.mongodb.org/manual/reference/operator/query/all/>`_,
@@ -277,7 +278,7 @@ $group command support basic operators:
  `$last <http://docs.mongodb.org/manual/reference/operator/aggregation/last/>`_,
  `$addToSet <http://docs.mongodb.org/manual/reference/operator/aggregation/addToSet/>`_,
  `$push <http://docs.mongodb.org/manual/reference/operator/aggregation/push/>`_.
-in addition to this, pipestat $group command support more, like **$concatToSet**, **$concatList**, **$call**.
+in addition to this, pipestat $group command support more, like **$concatToSet**, **$concatToList**, **$call**.
 see a example as below:
 
 .. code:: python

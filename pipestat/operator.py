@@ -22,6 +22,8 @@ class OperatorFactory(object):
             return MatchAndOperator(value)
         elif key == "$or":
             return MatchOrOperator(value)
+        elif key == "$nor":
+            return MatchNorOperator(value)
         elif key == "$call":
             return MatchCallOperator(value)
 
@@ -31,7 +33,7 @@ class OperatorFactory(object):
             if len(value) == 1:
                 name = value.keys()[0]
                 match_operators = _operators.get("$match", {})
-                if name in ["$and", "$or", "$call"]:
+                if name in ["$and", "$or", "$nor", "$call"]:
                     raise CommandError("invalid operator '%s'" % name)
                 if name in match_operators:
                     return match_operators[name](key, value[name])
@@ -401,6 +403,17 @@ class MatchOrOperator(MatchLogicOperator):
             if sub_op.match(document):
                 return True
         return False
+
+
+class MatchNorOperator(MatchLogicOperator):
+
+    name = "$nor"
+
+    def eval(self, document):
+        for sub_op in self.sub_ops:
+            if sub_op.match(document):
+                return False
+        return True
 
 
 class MatchNotOperator(MatchKeyOperator):
