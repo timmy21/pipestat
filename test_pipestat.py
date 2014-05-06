@@ -361,9 +361,9 @@ class ProjectCommandTest(unittest.TestCase):
             Document({"elapse": 14, "compute": 5.1}),
         ])
 
-    def test_substract(self):
+    def test_subtract(self):
         cmd = ProjectCommand({
-            "elapse": {"$substract": ["$elapse", 1]},
+            "elapse": {"$subtract": ["$elapse", 1]},
         })
         cmd.feed(Document({"app": "app2", "elapse": 3}))
         cmd.feed(Document({"app": "app1", "elapse": 1}))
@@ -581,7 +581,7 @@ class ProjectCommandTest(unittest.TestCase):
         cmd = ProjectCommand({
             "elapse": {
                 "value": "$elapse",
-                "wait": {"$substract": ["$elapse", 0.5]}
+                "wait": {"$subtract": ["$elapse", 0.5]}
             }
         })
         cmd.feed(Document({"app": "app2", "elapse": 3}))

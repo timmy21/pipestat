@@ -183,7 +183,7 @@ See this `mongo aggregation $project
 
 $project command support basic operators:
  `$add <http://docs.mongodb.org/manual/reference/operator/aggregation/add/>`_,
- `$substract <http://docs.mongodb.org/manual/reference/operator/aggregation/subtract/>`_,
+ `$subtract <http://docs.mongodb.org/manual/reference/operator/aggregation/subtract/>`_,
  `$multiply <http://docs.mongodb.org/manual/reference/operator/aggregation/multiply/>`_,
  `$divide <http://docs.mongodb.org/manual/reference/operator/aggregation/divide/>`_,
  `$mod <http://docs.mongodb.org/manual/reference/operator/aggregation/mod/>`_,

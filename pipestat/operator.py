@@ -623,9 +623,9 @@ class ProjectAddOperator(ProjectDualNumberOperator):
         return v1 + v2
 
 
-class ProjectSubstractOperator(ProjectDualNumberOperator):
+class ProjectSubtractOperator(ProjectDualNumberOperator):
 
-    name = "$substract"
+    name = "$subtract"
     returnTypes = NumberTypes
 
     def compute(self, v1, v2):
