@@ -474,6 +474,40 @@ class ProjectCommandTest(unittest.TestCase):
             Document({"elapse": 3}),
         ])
 
+    def test_use(self):
+        cmd = ProjectCommand({
+            "elapse": {"$use": ["$elapse", "float"]}
+        })
+        cmd.feed(Document({"app": "app2", "elapse": "3"}))
+        self.assertListEqual(cmd.result(), [
+            Document({"elapse": 3.0}),
+        ])
+
+        cmd = ProjectCommand({
+            "elapse": {"$use": ["$elapse", float]}
+        })
+        cmd.feed(Document({"app": "app2", "elapse": "3"}))
+        self.assertListEqual(cmd.result(), [
+            Document({"elapse": 3.0}),
+        ])
+
+        import json
+        cmd = ProjectCommand({
+            "name": {"$use": ["$name", "json"]}
+        })
+        cmd.feed(Document({"app": "app2", "name": json.dumps({"firstName": "m", "lastName": "n"})}))
+        self.assertListEqual(cmd.result(), [
+            Document({"name": {"firstName": "m", "lastName": "n"}}),
+        ])
+
+        cmd = ProjectCommand({
+            "loves": {"$use": ["$loves", "keyvalue"]}
+        })
+        cmd.feed(Document({"app": "app2", "loves": "sport=sport1,book=book1"}))
+        self.assertListEqual(cmd.result(), [
+            Document({"loves": {"sport": "sport1", "book": "book1"}}),
+        ])
+
     def test_concat(self):
         cmd = ProjectCommand({
             "app": {"$concat": ["$app", "-", {"$toUpper": "$action"}]},

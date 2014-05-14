@@ -27,3 +27,7 @@ class CommandError(PipeStatError):
 
 class LimitCompleted(PipeStatError):
     """limit command completed"""
+
+
+class PipeStatParseError(PipeStatError):
+    """parse value error"""

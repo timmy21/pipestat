@@ -4,11 +4,12 @@ import re
 import time
 import string
 import types
+from datetime import datetime, date
 from pipestat.errors import PipelineError, CommandError, OperatorError
 from pipestat.utils import Value, isNumberType, isDateType
 from pipestat.models import Document, undefined
 from pipestat.constants import NumberTypes, DateTypes, ArrayTypes
-from datetime import datetime, date
+from pipestat.parse import Parser
 
 
 _operators = {}
@@ -717,6 +718,43 @@ class ProjectToNumberOperator(ProjectConvertOperator):
         if v == undefined or v == None:
             return 0
         return float(v)
+
+
+class ProjectUseOperator(ProjectOperator):
+
+    name = "$use"
+    returnTypes = None
+
+    def __init__(self, key, value, expr=False):
+        super(ProjectUseOperator, self).__init__(key, value, expr=expr)
+        if isinstance(value, list) and len(value) == 2 or len(value) == 3:
+            if not Value.is_doc_ref_key(value[0]):
+                if isinstance(value[0], dict):
+                    self.value[0] = OperatorFactory.new_project(key, value[0], expr=True)
+            if isinstance(self.value[1], basestring):
+                try:
+                    self.value[1] = Parser.get(self.value[1])
+                except Exception:
+                    raise self.make_error("$use does not has predefined parser:%s" % self.value[1])
+            elif not callable(self.value[1]):
+                raise self.make_error("$use parser must be a callable or predefined")
+
+            if len(value) == 3 and not isinstance(value[2], dict):
+                raise self.make_error("$use parser parameter should be dict")
+        else:
+            raise self.make_error("the $use operator requires an array of two or three elements")
+
+    def eval(self, document):
+        v = self.value[0]
+        if isinstance(v, ProjectOperator):
+            v = v.eval(document)
+        elif Value.is_doc_ref_key(v):
+            v = document.get(v[1:])
+
+        if len(self.value) == 3:
+            return self.value[1](v, **self.value[2])
+        else:
+            return self.value[1](v)
 
 
 class ProjectConcatOperator(ProjectOperator):

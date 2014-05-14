@@ -192,7 +192,7 @@ $project command support basic operators:
  `$substr <http://docs.mongodb.org/manual/reference/operator/aggregation/substr/>`_,
  `$concat <http://docs.mongodb.org/manual/reference/operator/aggregation/concat/>`_ and
  `Date operators <http://docs.mongodb.org/manual/reference/operator/aggregation-date/>`_.
-in addition to this, pipestat $project command support more, like **$toNumber**, **$substring**, **$extract**, **$timestamp**, **$call**.
+in addition to this, pipestat $project command support more, like **$toNumber**, **$substring**, **$extract**, **$timestamp**, **$use**, **$call**.
 
 $toNumber operator use to convert string to number.
 
@@ -252,6 +252,18 @@ $timestamp operator convert formatted string time to seconds float value, use li
     ...    {
     ...        "$project": {
     ...            "ts": {"$timestamp": ["$ts_str", "%Y-%m-%d %H:%M:%S"]},
+    ...        },
+    ...    },
+    ... ]
+
+$use operator used to parse value use predefined parser or any callable, use like below:
+
+.. code:: python
+
+    >>> pipeline = [
+    ...    {
+    ...        "$project": {
+    ...            "name": {"$use": ["$name", "json"]}, # '{"lastName":"mike","firstName":"kitty"}' ==> {"lastName": "mike", "firstName": "kitty"}
     ...        },
     ...    },
     ... ]
