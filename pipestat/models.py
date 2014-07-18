@@ -5,29 +5,17 @@ from pipestat.constants import ArrayTypes
 
 class _Undefined(object):
 
-    def __eq__(self, other):
-        if isinstance(other, _Undefined):
-            return True
-        return False
-
-    def __ne__(self, other):
-        return not self.__eq__(other)
-
     def __lt__(self, other):
         return False
 
     def __le__(self, other):
-        if isinstance(other, _Undefined):
-            return True
-        return False
+        return self == other
 
     def __gt__(self, other):
         return False
 
     def __ge__(self, other):
-        if isinstance(other, _Undefined):
-            return True
-        return False
+        return self == other
 
     def __nonzero__(self):
         return False
