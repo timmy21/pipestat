@@ -1,6 +1,5 @@
 # -*- coding: utf-8 -*-
 
-import copy
 from pipestat.constants import ArrayTypes
 
 
@@ -52,7 +51,7 @@ class Document(dict):
                     break
         except Exception:
             return default
-        return copy.deepcopy(doc)
+        return doc
 
     def set(self, key, value):
         parts = key.split(".")
@@ -61,7 +60,7 @@ class Document(dict):
             if part not in doc:
                 doc[part] = {}
             doc = doc[part]
-        doc[parts[-1]] = copy.deepcopy(value)
+        doc[parts[-1]] = value
 
     def delete(self, key):
         parts = key.split(".")

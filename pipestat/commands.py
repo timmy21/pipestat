@@ -118,9 +118,10 @@ class ProjectCommand(Command):
                 if v != undefined:
                     new_doc.set(k, v)
         else:
-            new_doc = Document(copy.deepcopy(document))
-            for k in self.excludes:
-                new_doc.delete(k)
+            new_doc = Document()
+            for k, v in document.iteritems():
+                if k not in self.excludes:
+                    new_doc.set(k, v)
         super(ProjectCommand, self).feed(new_doc)
 
 
