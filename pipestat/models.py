@@ -38,36 +38,46 @@ undefined = _Undefined()
 class Document(dict):
 
     def get(self, key, default=None):
-        parts = key.split(".")
-        doc = self
         try:
-            for i, part in enumerate(parts):
-                doc = doc[part]
-                if isinstance(doc, ArrayTypes):
-                    remain_parts = ".".join(parts[i+1:])
-                    if remain_parts:
-                        doc = map(lambda x: Document(x).get(remain_parts, undefined), doc)
-                        doc = filter(lambda x: x != undefined, doc)
-                    break
+            if "." not in key:
+                doc = self[key]
+            else:
+                parts = key.split(".")
+                pcnt = len(parts)
+                doc = self
+                for i, part in enumerate(parts):
+                    doc = doc[part]
+                    if i != pcnt - 1 and isinstance(doc, ArrayTypes):
+                        remain_parts = ".".join(parts[i+1:])
+                        if remain_parts:
+                            doc = (Document(x).get(remain_parts, undefined) for x in doc)
+                            doc = [x for x in doc if x != undefined]
+                        break
         except Exception:
-            return default
+            doc = default
         return doc
 
     def set(self, key, value):
-        parts = key.split(".")
-        doc = self
-        for part in parts[:-1]:
-            if part not in doc:
-                doc[part] = {}
-            doc = doc[part]
-        doc[parts[-1]] = value
+        if "." not in key:
+            self[key] = value
+        else:
+            parts = key.split(".")
+            doc = self
+            for part in parts[:-1]:
+                if part not in doc:
+                    doc[part] = {}
+                doc = doc[part]
+            doc[parts[-1]] = value
 
     def delete(self, key):
-        parts = key.split(".")
-        doc = self
         try:
-            for part in parts[:-1]:
-                doc = doc[part]
-            del doc[parts[-1]]
+            if '.' not in key:
+                del self[key]
+            else:
+                parts = key.split(".")
+                doc = self
+                for part in parts[:-1]:
+                    doc = doc[part]
+                del doc[parts[-1]]
         except Exception:
             pass
