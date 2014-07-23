@@ -10,7 +10,7 @@ from pipestat.utils import Value, isNumberType, isDateType
 from pipestat.models import Document, undefined
 from pipestat.constants import NumberTypes, DateTypes, ArrayTypes
 from pipestat.constants import (
-    OPERATOR_VALUE_TYPE_PLAIN, OPERATOR_VALUE_TYPE_REFKEY, OPERATOR_VALUE_TYPE_OPERATOR
+    VALUE_TYPE_PLAIN, VALUE_TYPE_REFKEY, VALUE_TYPE_OPERATOR
 )
 from pipestat.parse import Parser
 
@@ -462,7 +462,7 @@ class ProjectOperator(Operator):
         self.key = key
         self.value = value
         self.expr = expr
-        self.value_type = OPERATOR_VALUE_TYPE_PLAIN
+        self.value_type = VALUE_TYPE_PLAIN
 
     def project(self, document):
         try:
@@ -485,7 +485,7 @@ class ProjectValueOperator(ProjectOperator):
         super(ProjectValueOperator, self).__init__(key, value, expr=expr)
         if Value.is_doc_ref_key(value):
             self.value = value[1:]
-            self.value_type = OPERATOR_VALUE_TYPE_REFKEY
+            self.value_type = VALUE_TYPE_REFKEY
         elif value == 1:
             pass
         else:
@@ -495,7 +495,7 @@ class ProjectValueOperator(ProjectOperator):
             raise self.make_error("field inclusion is not allowed inside of $expressions")
 
     def eval(self, document):
-        if self.value_type == OPERATOR_VALUE_TYPE_REFKEY:
+        if self.value_type == VALUE_TYPE_REFKEY:
             return document.get(self.value, undefined)
         else:
             return document.get(self.key, undefined)
@@ -511,13 +511,13 @@ class ProjectExtractOperator(ProjectOperator):
         if isinstance(value, list) and len(value) == 2:
             if Value.is_doc_ref_key(value[0]):
                 self.value[0] = value[0][1:]
-                self.value_type = OPERATOR_VALUE_TYPE_REFKEY
+                self.value_type = VALUE_TYPE_REFKEY
             else:
                 if isinstance(value[0], dict):
                     prj = OperatorFactory.new_project(key, value[0], expr=True)
                     if (not prj.returnTypes) or (set(prj.returnTypes) & set(types.StringTypes)):
                         self.value[0] = prj
-                        self.value_type = OPERATOR_VALUE_TYPE_OPERATOR
+                        self.value_type = VALUE_TYPE_OPERATOR
                     else:
                         raise self.make_error("$extract source must be string type")
                 elif not isinstance(value[0], basestring):
@@ -531,9 +531,9 @@ class ProjectExtractOperator(ProjectOperator):
 
     def eval(self, document):
         v = self.value[0]
-        if self.value_type == OPERATOR_VALUE_TYPE_REFKEY:
+        if self.value_type == VALUE_TYPE_REFKEY:
             v = document.get(v, undefined)
-        elif self.value_type == OPERATOR_VALUE_TYPE_OPERATOR:
+        elif self.value_type == VALUE_TYPE_OPERATOR:
             v = v.eval(document)
 
         if not isinstance(v, basestring):
@@ -559,13 +559,13 @@ class ProjectTimestampOperator(ProjectOperator):
         if isinstance(value, list) and len(value) == 2:
             if Value.is_doc_ref_key(value[0]):
                 self.value[0] = value[0][1:]
-                self.value_type = OPERATOR_VALUE_TYPE_REFKEY
+                self.value_type = VALUE_TYPE_REFKEY
             else:
                 if isinstance(value[0], dict):
                     prj = OperatorFactory.new_project(key, value[0], expr=True)
                     if (not prj.returnTypes) or (set(prj.returnTypes) & set(types.StringTypes)):
                         self.value[0] = prj
-                        self.value_type = OPERATOR_VALUE_TYPE_OPERATOR
+                        self.value_type = VALUE_TYPE_OPERATOR
                     else:
                         raise self.make_error("$timestamp source must be string type")
                 elif not isinstance(value[0], basestring):
@@ -578,9 +578,9 @@ class ProjectTimestampOperator(ProjectOperator):
 
     def eval(self, document):
         v = self.value[0]
-        if self.value_type == OPERATOR_VALUE_TYPE_REFKEY:
+        if self.value_type == VALUE_TYPE_REFKEY:
             v = document.get(v)
-        elif self.value_type == OPERATOR_VALUE_TYPE_OPERATOR:
+        elif self.value_type == VALUE_TYPE_OPERATOR:
             v = v.eval(document)
 
         if not isinstance(v, basestring):
@@ -594,17 +594,17 @@ class ProjectDualNumberOperator(ProjectOperator):
     def __init__(self, key, value, expr=False):
         super(ProjectDualNumberOperator, self).__init__(key, value, expr=expr)
         if isinstance(value, list) and len(value) == 2:
-            self.value_type = [OPERATOR_VALUE_TYPE_PLAIN, OPERATOR_VALUE_TYPE_PLAIN]
+            self.value_type = [VALUE_TYPE_PLAIN, VALUE_TYPE_PLAIN]
             for i, v in enumerate(value):
                 if Value.is_doc_ref_key(v):
                     self.value[i] = v[1:]
-                    self.value_type[i] = OPERATOR_VALUE_TYPE_REFKEY
+                    self.value_type[i] = VALUE_TYPE_REFKEY
                 else:
                     if isinstance(v, dict):
                         prj = OperatorFactory.new_project(key, v, expr=True)
                         if (not prj.returnTypes) or (set(prj.returnTypes) & set(NumberTypes)):
                             self.value[i] = prj
-                            self.value_type[i] = OPERATOR_VALUE_TYPE_OPERATOR
+                            self.value_type[i] = VALUE_TYPE_OPERATOR
                         else:
                             raise self.make_error("%s element must be numeric type" % self.name)
                     elif isNumberType(v):
@@ -616,15 +616,15 @@ class ProjectDualNumberOperator(ProjectOperator):
 
     def eval(self, document):
         v1 = self.value[0]
-        if self.value_type[0] == OPERATOR_VALUE_TYPE_REFKEY:
+        if self.value_type[0] == VALUE_TYPE_REFKEY:
             v1 = document.get(v1)
-        elif self.value_type[0] == OPERATOR_VALUE_TYPE_OPERATOR:
+        elif self.value_type[0] == VALUE_TYPE_OPERATOR:
             v1 = v1.eval(document)
 
         v2 = self.value[1]
-        if self.value_type[1] == OPERATOR_VALUE_TYPE_REFKEY:
+        if self.value_type[1] == VALUE_TYPE_REFKEY:
             v2 = document.get(v2)
-        elif self.value_type[1] == OPERATOR_VALUE_TYPE_OPERATOR:
+        elif self.value_type[1] == VALUE_TYPE_OPERATOR:
             v2 = v2.eval(document)
 
         if (v1 == undefined or v1 == None) or (v2 == undefined or v2 == None):
@@ -690,13 +690,13 @@ class ProjectConvertOperator(ProjectOperator):
         super(ProjectConvertOperator, self).__init__(key, value, expr=expr)
         if Value.is_doc_ref_key(value):
             self.value = value[1:]
-            self.value_type = OPERATOR_VALUE_TYPE_REFKEY
+            self.value_type = VALUE_TYPE_REFKEY
         else:
             if isinstance(value, dict):
                 prj = OperatorFactory.new_project(key, value, expr=True)
                 if (not prj.returnTypes) or (set(prj.returnTypes) & set(types.StringTypes)):
                     self.value = prj
-                    self.value_type = OPERATOR_VALUE_TYPE_OPERATOR
+                    self.value_type = VALUE_TYPE_OPERATOR
                 else:
                     raise self.make_error("%s source must be string type" % self.name)
             elif not isinstance(value, basestring):
@@ -704,9 +704,9 @@ class ProjectConvertOperator(ProjectOperator):
 
     def eval (self, document):
         v = self.value
-        if self.value_type == OPERATOR_VALUE_TYPE_REFKEY:
+        if self.value_type == VALUE_TYPE_REFKEY:
             v = document.get(v)
-        elif self.value_type == OPERATOR_VALUE_TYPE_OPERATOR:
+        elif self.value_type == VALUE_TYPE_OPERATOR:
             v = v.eval(document)
         return self.convert(v)
 
@@ -757,11 +757,11 @@ class ProjectUseOperator(ProjectOperator):
         if isinstance(value, list) and len(value) == 2 or len(value) == 3:
             if Value.is_doc_ref_key(value[0]):
                 self.value[0] = value[0][1:]
-                self.value_type = OPERATOR_VALUE_TYPE_REFKEY
+                self.value_type = VALUE_TYPE_REFKEY
             else:
                 if isinstance(value[0], dict):
                     self.value[0] = OperatorFactory.new_project(key, value[0], expr=True)
-                    self.value_type = OPERATOR_VALUE_TYPE_OPERATOR
+                    self.value_type = VALUE_TYPE_OPERATOR
             if isinstance(self.value[1], basestring):
                 try:
                     self.value[1] = Parser.get(self.value[1])
@@ -777,9 +777,9 @@ class ProjectUseOperator(ProjectOperator):
 
     def eval(self, document):
         v = self.value[0]
-        if self.value_type == OPERATOR_VALUE_TYPE_REFKEY:
+        if self.value_type == VALUE_TYPE_REFKEY:
             v = document.get(v)
-        elif self.value_type == OPERATOR_VALUE_TYPE_OPERATOR:
+        elif self.value_type == VALUE_TYPE_OPERATOR:
             v = v.eval(document)
 
         if len(self.value) == 3:
@@ -836,13 +836,13 @@ class ProjectSubstrOperator(ProjectOperator):
         if isinstance(value, list) and len(value) == 3:
             if Value.is_doc_ref_key(value[0]):
                 self.value[0] = value[0][1:]
-                self.value_type = OPERATOR_VALUE_TYPE_REFKEY
+                self.value_type = VALUE_TYPE_REFKEY
             else:
                 if isinstance(value[0], dict):
                     prj = OperatorFactory.new_project(key, value[0], expr=True)
                     if (not prj.returnTypes) or (set(prj.returnTypes) & set(types.StringTypes)):
                         self.value[0] = prj
-                        self.value_type = OPERATOR_VALUE_TYPE_OPERATOR
+                        self.value_type = VALUE_TYPE_OPERATOR
                     else:
                         raise self.make_error("$substr source must be string type")
                 elif not isinstance(value[0], basestring):
@@ -860,9 +860,9 @@ class ProjectSubstrOperator(ProjectOperator):
 
     def eval(self, document):
         v = self.value[0]
-        if self.value_type == OPERATOR_VALUE_TYPE_REFKEY:
+        if self.value_type == VALUE_TYPE_REFKEY:
             v = document.get(v)
-        elif self.value_type == OPERATOR_VALUE_TYPE_OPERATOR:
+        elif self.value_type == VALUE_TYPE_OPERATOR:
             v = v.eval(document)
 
         if v == undefined:
@@ -883,13 +883,13 @@ class ProjectSubstringOperator(ProjectOperator):
         if isinstance(value, list) and (len(value) == 2 or len(value) == 3):
             if Value.is_doc_ref_key(value[0]):
                 self.value[0] = value[0][1:]
-                self.value_type = OPERATOR_VALUE_TYPE_REFKEY
+                self.value_type = VALUE_TYPE_REFKEY
             else:
                 if isinstance(value[0], dict):
                     prj = OperatorFactory.new_project(key, value[0], expr=True)
                     if (not prj.returnTypes) or (set(prj.returnTypes) & set(types.StringTypes)):
                         self.value[0] = prj
-                        self.value_type = OPERATOR_VALUE_TYPE_OPERATOR
+                        self.value_type = VALUE_TYPE_OPERATOR
                     else:
                         raise self.make_error("$substring source must be string type")
                 elif not isinstance(value[0], basestring):
@@ -910,9 +910,9 @@ class ProjectSubstringOperator(ProjectOperator):
 
     def eval(self, document):
         v = self.value[0]
-        if self.value_type == OPERATOR_VALUE_TYPE_REFKEY:
+        if self.value_type == VALUE_TYPE_REFKEY:
             v = document.get(v)
-        elif self.value_type == OPERATOR_VALUE_TYPE_OPERATOR:
+        elif self.value_type == VALUE_TYPE_OPERATOR:
             v = v.eval(document)
 
         if v == undefined:
@@ -930,13 +930,13 @@ class ProjectDateOperator(ProjectOperator):
         super(ProjectDateOperator, self).__init__(key, value, expr=expr)
         if Value.is_doc_ref_key(value):
             self.value = value[1:]
-            self.value_type = OPERATOR_VALUE_TYPE_REFKEY
+            self.value_type = VALUE_TYPE_REFKEY
         else:
             if isinstance(value, dict):
                 prj = OperatorFactory.new_project(key, value, expr=True)
                 if (not prj.returnTypes) or (set(prj.returnTypes) & set(DateTypes)):
                     self.value = prj
-                    self.value_type = OPERATOR_VALUE_TYPE_OPERATOR
+                    self.value_type = VALUE_TYPE_OPERATOR
                 else:
                     raise self.make_error("%s value must be date type" % self.name)
             elif (not isinstance(value, (datetime, date))) and (not isNumberType(value)):
@@ -948,9 +948,9 @@ class ProjectDateOperator(ProjectOperator):
 
     def _make_date(self, document):
         v = self.value
-        if self.value_type == OPERATOR_VALUE_TYPE_REFKEY:
+        if self.value_type == VALUE_TYPE_REFKEY:
             v = document.get(v)
-        elif self.value_type == OPERATOR_VALUE_TYPE_OPERATOR:
+        elif self.value_type == VALUE_TYPE_OPERATOR:
             v = v.eval(document)
 
         if isinstance(v, datetime):
@@ -1088,7 +1088,7 @@ class GroupOperator(Operator):
     def __init__(self, key, value):
         self.key = key
         self.value = value
-        self.value_type = OPERATOR_VALUE_TYPE_PLAIN
+        self.value_type = VALUE_TYPE_PLAIN
 
     def group(self, document, acc_val):
         try:
@@ -1109,19 +1109,19 @@ class GroupUnaryOperator(GroupOperator):
         super(GroupUnaryOperator, self).__init__(key, value)
         if Value.is_doc_ref_key(value):
             self.value = value[1:]
-            self.value_type = OPERATOR_VALUE_TYPE_REFKEY
+            self.value_type = VALUE_TYPE_REFKEY
         else:
             if isinstance(value, dict):
                 self.value = OperatorFactory.new_project(key, value, expr=True)
-                self.value_type = OPERATOR_VALUE_TYPE_OPERATOR
+                self.value_type = VALUE_TYPE_OPERATOR
             elif isinstance(value, ArrayTypes):
                 raise self.make_error("aggregating group operators are unary (%s)" % self.name)
 
     def get_value(self, document, default=None):
         v = self.value
-        if self.value_type == OPERATOR_VALUE_TYPE_REFKEY:
+        if self.value_type == VALUE_TYPE_REFKEY:
             v = document.get(v, default)
-        elif self.value_type == OPERATOR_VALUE_TYPE_OPERATOR:
+        elif self.value_type == VALUE_TYPE_OPERATOR:
             v = v.eval(document)
             if v == undefined:
                 v = default

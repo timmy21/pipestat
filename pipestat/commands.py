@@ -1,7 +1,9 @@
 # -*- coding: utf-8 -*-
 
-import json
-import copy
+try:
+    import simplejson as json
+except ImportError:
+    import json
 import collections
 from pipestat.bsort import insort
 from pipestat.errors import PipelineError, CommandError, LimitCompleted
@@ -9,6 +11,7 @@ from pipestat.operator import OperatorFactory, ProjectOperator
 from pipestat.models import Document, undefined
 from pipestat.utils import Value, isNumberType
 from pipestat.constants import ASCENDING, DESCENDING, ArrayTypes
+from pipestat.constants import VALUE_TYPE_PLAIN, VALUE_TYPE_REFKEY, VALUE_TYPE_OPERATOR
 
 
 _commands = {}
@@ -141,7 +144,18 @@ class GroupCommand(Command):
                 continue
             operators[k] = OperatorFactory.new_group(k, v)
         self.operators = operators
-        self._id = self._valid_id(value["_id"])
+
+        id_v = value["_id"]
+        if Value.is_doc_ref_key(id_v):
+            self._id = id_v
+            self._id_type = VALUE_TYPE_REFKEY
+        elif isinstance(id_v, dict):
+            self._id = OperatorFactory.new_project("_id", id_v)
+            self._id_type = VALUE_TYPE_OPERATOR
+        else:
+            self._id = id_v
+            self._id_type = VALUE_TYPE_PLAIN
+
         self._id_docs = {}
 
     def feed(self, document):
@@ -176,17 +190,11 @@ class GroupCommand(Command):
             rets.append(item)
         return rets
 
-    def _valid_id(self, id_v):
-        if isinstance(id_v, dict):
-            return OperatorFactory.new_project("_id", id_v)
-        else:
-            return id_v
-
     def gen_id(self, document):
-        if isinstance(self._id, ProjectOperator):
-            return self._id.project(document)
-        elif Value.is_doc_ref_key(self._id):
+        if self._id_type == VALUE_TYPE_REFKEY:
             return document.get(self._id[1:])
+        elif self._id_type == VALUE_TYPE_OPERATOR:
+            return self._id.project(document)
         else:
             return self._id
 
@@ -299,6 +307,6 @@ class UnwindCommand(Command):
                 raise self.make_error("$unwind value at end of field path must be an array")
 
             for v in vals:
-                new_doc = Document(copy.deepcopy(document))
+                new_doc = Document(document)
                 new_doc.set(self.value[1:], v)
                 super(UnwindCommand, self).feed(new_doc)

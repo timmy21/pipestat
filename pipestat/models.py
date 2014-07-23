@@ -28,7 +28,7 @@ class Document(dict):
     def get(self, key, default=None):
         try:
             if "." not in key:
-                doc = self[key]
+                return self[key]
             else:
                 parts = key.split(".")
                 pcnt = len(parts)
@@ -41,9 +41,9 @@ class Document(dict):
                             doc = (Document(x).get(remain_parts, undefined) for x in doc)
                             doc = [x for x in doc if x != undefined]
                         break
+                return doc
         except Exception:
-            doc = default
-        return doc
+            return default
 
     def set(self, key, value):
         if "." not in key:
