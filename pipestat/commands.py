@@ -144,6 +144,7 @@ class GroupCommand(Command):
                 continue
             operators[k] = OperatorFactory.new_group(k, v)
         self.operators = operators
+        self.should_normalize = any(hasattr(op, "result") for op in self.operators.itervalues())
 
         id_v = value["_id"]
         if Value.is_doc_ref_key(id_v):
@@ -160,35 +161,37 @@ class GroupCommand(Command):
 
     def feed(self, document):
         ids = self.gen_id(document)
-        gid = json.dumps({"_id": ids})
-        acc_vals = self._id_docs.setdefault(gid, Document())
+        hid = self.hash_id(ids)
+        if hid in self._id_docs:
+            acc_doc = self._id_docs[hid]
+        else:
+            acc_doc = self._id_docs[hid] = Document({"_id": ids})
         for k, op in self.operators.iteritems():
-            v = op.group(document, acc_vals.get(k, undefined))
+            v = op.group(document, acc_doc.get(k, undefined))
             if v == undefined:
                 v = None
-            acc_vals.set(k, v)
+            acc_doc.set(k, v)
 
     def result(self):
-        documents = self._make_result()
+        if self.should_normalize:
+            self.normalize()
+
         if self.next:
             try:
-                for doc in documents:
+                for doc in self._id_docs.itervalues():
                     self.next.feed(doc)
             except LimitCompleted:
                 pass
             return self.next.result()
         else:
-            return documents
+            return self._id_docs.values()
 
-    def _make_result(self):
-        rets = []
-        for id_k, id_v in self._id_docs.iteritems():
-            item = Document(json.loads(id_k))
+    def normalize(self):
+        for acc_doc in self._id_docs.itervalues():
             for k, op in self.operators.iteritems():
-                v = op.result(id_v.get(k))
-                item.set(k, v)
-            rets.append(item)
-        return rets
+                if hasattr(op, "result"):
+                    v = op.result(acc_doc.get(k))
+                    acc_doc.set(k, v)
 
     def gen_id(self, document):
         if self._id_type == VALUE_TYPE_REFKEY:
@@ -197,6 +200,15 @@ class GroupCommand(Command):
             return self._id.project(document)
         else:
             return self._id
+
+    def hash_id(self, ids):
+        try:
+            if isinstance(ids, dict):
+                return hash(frozenset(ids.items()))
+            else:
+                return hash(ids)
+        except Exception:
+            return hash(json.dumps({"_id": ids}))
 
 
 class SortCommand(Command):

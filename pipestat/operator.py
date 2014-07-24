@@ -1099,9 +1099,6 @@ class GroupOperator(Operator):
     def eval(self, document, acc_val):
         raise NotImplementedError()
 
-    def result(self, acc_val):
-        return acc_val
-
 
 class GroupUnaryOperator(GroupOperator):
 
@@ -1277,4 +1274,7 @@ class GroupCombineOperator(GroupOperator):
             if v == undefined:
                 v = None
             pv.set(k, v)
-        return dict(pv)
+        return pv
+
+    def result(self, acc_val):
+        return dict(acc_val)
