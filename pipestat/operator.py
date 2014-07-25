@@ -485,9 +485,8 @@ class ProjectValueOperator(ProjectOperator):
         super(ProjectValueOperator, self).__init__(key, value, expr=expr)
         if Value.is_doc_ref_key(value):
             self.value = value[1:]
-            self.value_type = VALUE_TYPE_REFKEY
         elif value == 1:
-            pass
+            self.value = key
         else:
             raise self.make_error("field path references must be prefixed with a '$'")
 
@@ -495,10 +494,7 @@ class ProjectValueOperator(ProjectOperator):
             raise self.make_error("field inclusion is not allowed inside of $expressions")
 
     def eval(self, document):
-        if self.value_type == VALUE_TYPE_REFKEY:
-            return document.get(self.value, undefined)
-        else:
-            return document.get(self.key, undefined)
+        return document.get(self.value, undefined)
 
 
 class ProjectExtractOperator(ProjectOperator):
@@ -1115,14 +1111,15 @@ class GroupUnaryOperator(GroupOperator):
                 raise self.make_error("aggregating group operators are unary (%s)" % self.name)
 
     def get_value(self, document, default=None):
-        v = self.value
         if self.value_type == VALUE_TYPE_REFKEY:
-            v = document.get(v, default)
+            return document.get(self.value, default)
         elif self.value_type == VALUE_TYPE_OPERATOR:
-            v = v.eval(document)
+            v = self.value.eval(document)
             if v == undefined:
                 v = default
-        return v
+            return v
+        else:
+            return self.value
 
 
 class GroupSumOperator(GroupUnaryOperator):
@@ -1130,7 +1127,7 @@ class GroupSumOperator(GroupUnaryOperator):
     name = "$sum"
 
     def eval(self, document, acc_val):
-        value = self.get_value(document)
+        value = self.get_value(document, default=0)
         if acc_val == undefined:
             acc_val = 0
         try:
