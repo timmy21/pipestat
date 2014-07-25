@@ -119,12 +119,18 @@ class ProjectCommand(Command):
             for k, op in self.operators.iteritems():
                 v = op.project(document)
                 if v != undefined:
-                    new_doc.set(k, v)
+                    if "." in k:
+                        new_doc.set2(k, v)
+                    else:
+                        new_doc[k] = v
         else:
             new_doc = Document()
             for k, v in document.iteritems():
                 if k not in self.excludes:
-                    new_doc.set(k, v)
+                    if "." in k:
+                        new_doc.set2(k, v)
+                    else:
+                        new_doc[k] = v
         super(ProjectCommand, self).feed(new_doc)
 
 
@@ -148,7 +154,7 @@ class GroupCommand(Command):
 
         id_v = value["_id"]
         if Value.is_doc_ref_key(id_v):
-            self._id = id_v
+            self._id = id_v[1:]
             self._id_type = VALUE_TYPE_REFKEY
         elif isinstance(id_v, dict):
             self._id = OperatorFactory.new_project("_id", id_v)
@@ -167,10 +173,17 @@ class GroupCommand(Command):
         else:
             acc_doc = self._id_docs[hid] = Document({"_id": ids})
         for k, op in self.operators.iteritems():
-            v = op.group(document, acc_doc.get(k, undefined))
+            comma = "." in k
+            if comma:
+                v = op.group(document, acc_doc.get2(k, undefined))
+            else:
+                v = op.group(document, acc_doc.get(k, undefined))
             if v == undefined:
                 v = None
-            acc_doc.set(k, v)
+            if comma:
+                acc_doc.set2(k, v)
+            else:
+                acc_doc[k] = v
 
     def result(self):
         if self.should_normalize:
@@ -190,12 +203,20 @@ class GroupCommand(Command):
         for acc_doc in self._id_docs.itervalues():
             for k, op in self.operators.iteritems():
                 if hasattr(op, "result"):
-                    v = op.result(acc_doc.get(k))
-                    acc_doc.set(k, v)
+                    comma = "." in k
+                    if comma:
+                        v = op.result(acc_doc.get2(k))
+                        acc_doc.set2(k, v)
+                    else:
+                        v = op.result(acc_doc.get(k))
+                        acc_doc[k] = v
 
     def gen_id(self, document):
         if self._id_type == VALUE_TYPE_REFKEY:
-            return document.get(self._id[1:])
+            if "." in self._id:
+                return document.get2(self._id)
+            else:
+                return document.get(self._id)
         elif self._id_type == VALUE_TYPE_OPERATOR:
             return self._id.project(document)
         else:
@@ -239,8 +260,12 @@ class SortCommand(Command):
 
     def cmp_func(self, doc1, doc2):
         for k, direction in self.value:
-            v1 = doc1.get(k)
-            v2 = doc2.get(k)
+            if "." in k:
+                v1 = doc1.get2(k)
+                v2 = doc2.get2(k)
+            else:
+                v1 = doc1.get(k)
+                v2 = doc2.get(k)
             ret = 0
             if direction == ASCENDING:
                 ret = cmp(v1, v2)
@@ -311,14 +336,22 @@ class UnwindCommand(Command):
         super(UnwindCommand, self).__init__(value)
         if not Value.is_doc_ref_key(value):
             raise self.make_error("$unwind field path references must be prefixed with a '$'")
+        self.value = value[1:]
 
     def feed(self, document):
-        vals = document.get(self.value[1:], undefined)
+        comma = "." in self.value
+        if comma:
+            vals = document.get2(self.value, undefined)
+        else:
+            vals = document.get(self.value, undefined)
         if vals != undefined:
             if not isinstance(vals, ArrayTypes):
                 raise self.make_error("$unwind value at end of field path must be an array")
 
             for v in vals:
                 new_doc = Document(document)
-                new_doc.set(self.value[1:], v)
+                if comma:
+                    new_doc.set2(self.value, v)
+                else:
+                    new_doc[self.value] = v
                 super(UnwindCommand, self).feed(new_doc)

@@ -143,7 +143,10 @@ class MatchKeyOperator(MatchOperator):
 class MatchKeyElemOperator(MatchKeyOperator):
 
     def eval(self, document):
-        doc_val = document.get(self.key, undefined)
+        if "." in self.key:
+            doc_val = document.get2(self.key, undefined)
+        else:
+            doc_val = document.get(self.key, undefined)
         if isinstance(doc_val, ArrayTypes):
             for v in doc_val:
                 m = self._eval_val(v, document)
@@ -164,7 +167,10 @@ class MatchExistsOperator(MatchKeyOperator):
             self.make_error("the $exists operator requires bool")
 
     def eval(self, document):
-        doc_val = document.get(self.key, undefined)
+        if "." in self.key:
+            doc_val = document.get2(self.key, undefined)
+        else:
+            doc_val = document.get(self.key, undefined)
         if self.value and doc_val != undefined:
             return True
         elif not self.value and doc_val == undefined:
@@ -323,7 +329,10 @@ class MatchAllOperator(MatchKeyOperator):
             raise self.make_error("thie $all operator require array")
 
     def eval(self, document):
-        doc_val = document.get(self.key, undefined)
+        if "." in self.key:
+            doc_val = document.get2(self.key, undefined)
+        else:
+            doc_val = document.get(self.key, undefined)
         if doc_val == undefined:
             return False
         if not isinstance(doc_val, ArrayTypes):
@@ -347,7 +356,10 @@ class MatchElemMatchOperator(MatchKeyOperator):
             raise self.make_error("the $elemMatch operator requires an object")
 
     def eval(self, document):
-        doc_val = document.get(self.key, undefined)
+        if "." in self.key:
+            doc_val = document.get2(self.key, undefined)
+        else:
+            doc_val = document.get(self.key, undefined)
         if isinstance(doc_val, ArrayTypes):
             for v in doc_val:
                 if isinstance(v, dict):
@@ -494,7 +506,10 @@ class ProjectValueOperator(ProjectOperator):
             raise self.make_error("field inclusion is not allowed inside of $expressions")
 
     def eval(self, document):
-        return document.get(self.value, undefined)
+        if "." in self.value:
+            return document.get2(self.value, undefined)
+        else:
+            return document.get(self.value, undefined)
 
 
 class ProjectExtractOperator(ProjectOperator):
@@ -528,7 +543,10 @@ class ProjectExtractOperator(ProjectOperator):
     def eval(self, document):
         v = self.value[0]
         if self.value_type == VALUE_TYPE_REFKEY:
-            v = document.get(v, undefined)
+            if "." in v:
+                v = document.get2(v, undefined)
+            else:
+                v = document.get(v, undefined)
         elif self.value_type == VALUE_TYPE_OPERATOR:
             v = v.eval(document)
 
@@ -575,7 +593,10 @@ class ProjectTimestampOperator(ProjectOperator):
     def eval(self, document):
         v = self.value[0]
         if self.value_type == VALUE_TYPE_REFKEY:
-            v = document.get(v)
+            if "." in v:
+                v = document.get2(v)
+            else:
+                v = document.get(v)
         elif self.value_type == VALUE_TYPE_OPERATOR:
             v = v.eval(document)
 
@@ -613,13 +634,19 @@ class ProjectDualNumberOperator(ProjectOperator):
     def eval(self, document):
         v1 = self.value[0]
         if self.value_type[0] == VALUE_TYPE_REFKEY:
-            v1 = document.get(v1)
+            if "." in v1:
+                v1 = document.get2(v1)
+            else:
+                v1 = document.get(v1)
         elif self.value_type[0] == VALUE_TYPE_OPERATOR:
             v1 = v1.eval(document)
 
         v2 = self.value[1]
         if self.value_type[1] == VALUE_TYPE_REFKEY:
-            v2 = document.get(v2)
+            if "." in v2:
+                v2 = document.get2(v2)
+            else:
+                v2 = document.get(v2)
         elif self.value_type[1] == VALUE_TYPE_OPERATOR:
             v2 = v2.eval(document)
 
@@ -701,7 +728,10 @@ class ProjectConvertOperator(ProjectOperator):
     def eval (self, document):
         v = self.value
         if self.value_type == VALUE_TYPE_REFKEY:
-            v = document.get(v)
+            if "." in v:
+                v = document.get2(v)
+            else:
+                v = document.get(v)
         elif self.value_type == VALUE_TYPE_OPERATOR:
             v = v.eval(document)
         return self.convert(v)
@@ -774,7 +804,10 @@ class ProjectUseOperator(ProjectOperator):
     def eval(self, document):
         v = self.value[0]
         if self.value_type == VALUE_TYPE_REFKEY:
-            v = document.get(v)
+            if "." in v:
+                v = document.get2(v)
+            else:
+                v = document.get(v)
         elif self.value_type == VALUE_TYPE_OPERATOR:
             v = v.eval(document)
 
@@ -810,7 +843,7 @@ class ProjectConcatOperator(ProjectOperator):
             if isinstance(v, ProjectOperator):
                 rv = v.eval(document)
             elif Value.is_doc_ref_key(v):
-                rv = document.get(v[1:])
+                rv = document.get2(v[1:])
             else:
                 rv = v
             if rv is None or rv == undefined:
@@ -857,7 +890,10 @@ class ProjectSubstrOperator(ProjectOperator):
     def eval(self, document):
         v = self.value[0]
         if self.value_type == VALUE_TYPE_REFKEY:
-            v = document.get(v)
+            if "." in v:
+                v = document.get2(v)
+            else:
+                v = document.get(v)
         elif self.value_type == VALUE_TYPE_OPERATOR:
             v = v.eval(document)
 
@@ -907,7 +943,10 @@ class ProjectSubstringOperator(ProjectOperator):
     def eval(self, document):
         v = self.value[0]
         if self.value_type == VALUE_TYPE_REFKEY:
-            v = document.get(v)
+            if "." in v:
+                v = document.get2(v)
+            else:
+                v = document.get(v)
         elif self.value_type == VALUE_TYPE_OPERATOR:
             v = v.eval(document)
 
@@ -945,7 +984,10 @@ class ProjectDateOperator(ProjectOperator):
     def _make_date(self, document):
         v = self.value
         if self.value_type == VALUE_TYPE_REFKEY:
-            v = document.get(v)
+            if "." in v:
+                v = document.get2(v)
+            else:
+                v = document.get(v)
         elif self.value_type == VALUE_TYPE_OPERATOR:
             v = v.eval(document)
 
@@ -1073,7 +1115,10 @@ class ProjectCombineOperator(ProjectOperator):
         for k, combine_op in self.combined_ops.iteritems():
             v = combine_op.project(document)
             if v != undefined:
-                pv.set(k, v)
+                if "." in k:
+                    pv.set2(k, v)
+                else:
+                    pv[k] = v
         return dict(pv)
 
 
@@ -1112,7 +1157,10 @@ class GroupUnaryOperator(GroupOperator):
 
     def get_value(self, document, default=None):
         if self.value_type == VALUE_TYPE_REFKEY:
-            return document.get(self.value, default)
+            if "." in self.value:
+                return document.get2(self.value, default)
+            else:
+                return document.get(self.value, default)
         elif self.value_type == VALUE_TYPE_OPERATOR:
             v = self.value.eval(document)
             if v == undefined:
@@ -1267,10 +1315,17 @@ class GroupCombineOperator(GroupOperator):
             acc_val = Document()
         pv = Document()
         for k, combine_op in self.combined_ops.iteritems():
-            v = combine_op.group(document, acc_val.get(k, undefined))
+            comma = "." in k
+            if comma:
+                v = combine_op.group(document, acc_val.get2(k, undefined))
+            else:
+                v = combine_op.group(document, acc_val.get(k, undefined))
             if v == undefined:
                 v = None
-            pv.set(k, v)
+            if comma:
+                pv.set2(k, v)
+            else:
+                pv[k] = v
         return pv
 
     def result(self, acc_val):
