@@ -27,7 +27,7 @@ class Document(dict):
     """Dict Wrapper for nested key, for example: 'flag.fin'
 
     v2 function is more slower than same function in dict,
-    so juge if comma in key before call relative function, for example below:
+    so juge if comma in key before call function, that is ugly but faster.
 
     >>> doc = Document({'flag': {'fin': 1}})
     >>> key = 'flag.fin'

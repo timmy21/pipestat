@@ -138,12 +138,13 @@ class MatchKeyOperator(MatchOperator):
     def __init__(self, key, value):
         self.key = key
         self.value = value
+        self.key_comma = "." in key
 
 
 class MatchKeyElemOperator(MatchKeyOperator):
 
     def eval(self, document):
-        if "." in self.key:
+        if self.key_comma:
             doc_val = document.get2(self.key, undefined)
         else:
             doc_val = document.get(self.key, undefined)
@@ -167,7 +168,7 @@ class MatchExistsOperator(MatchKeyOperator):
             self.make_error("the $exists operator requires bool")
 
     def eval(self, document):
-        if "." in self.key:
+        if self.key_comma:
             doc_val = document.get2(self.key, undefined)
         else:
             doc_val = document.get(self.key, undefined)
@@ -329,7 +330,7 @@ class MatchAllOperator(MatchKeyOperator):
             raise self.make_error("thie $all operator require array")
 
     def eval(self, document):
-        if "." in self.key:
+        if self.key_comma:
             doc_val = document.get2(self.key, undefined)
         else:
             doc_val = document.get(self.key, undefined)
@@ -356,7 +357,7 @@ class MatchElemMatchOperator(MatchKeyOperator):
             raise self.make_error("the $elemMatch operator requires an object")
 
     def eval(self, document):
-        if "." in self.key:
+        if self.key_comma:
             doc_val = document.get2(self.key, undefined)
         else:
             doc_val = document.get(self.key, undefined)
@@ -505,8 +506,10 @@ class ProjectValueOperator(ProjectOperator):
         if self.expr and value == 1:
             raise self.make_error("field inclusion is not allowed inside of $expressions")
 
+        self.value_comma = "." in self.value
+
     def eval(self, document):
-        if "." in self.value:
+        if self.value_comma:
             return document.get2(self.value, undefined)
         else:
             return document.get(self.value, undefined)
@@ -523,6 +526,7 @@ class ProjectExtractOperator(ProjectOperator):
             if Value.is_doc_ref_key(value[0]):
                 self.value[0] = value[0][1:]
                 self.value_type = VALUE_TYPE_REFKEY
+                self.value_comma = "." in self.value[0]
             else:
                 if isinstance(value[0], dict):
                     prj = OperatorFactory.new_project(key, value[0], expr=True)
@@ -543,7 +547,7 @@ class ProjectExtractOperator(ProjectOperator):
     def eval(self, document):
         v = self.value[0]
         if self.value_type == VALUE_TYPE_REFKEY:
-            if "." in v:
+            if self.value_comma:
                 v = document.get2(v, undefined)
             else:
                 v = document.get(v, undefined)
@@ -574,6 +578,7 @@ class ProjectTimestampOperator(ProjectOperator):
             if Value.is_doc_ref_key(value[0]):
                 self.value[0] = value[0][1:]
                 self.value_type = VALUE_TYPE_REFKEY
+                self.value_comma = "." in self.value[0]
             else:
                 if isinstance(value[0], dict):
                     prj = OperatorFactory.new_project(key, value[0], expr=True)
@@ -593,7 +598,7 @@ class ProjectTimestampOperator(ProjectOperator):
     def eval(self, document):
         v = self.value[0]
         if self.value_type == VALUE_TYPE_REFKEY:
-            if "." in v:
+            if self.value_comma:
                 v = document.get2(v)
             else:
                 v = document.get(v)
@@ -612,10 +617,12 @@ class ProjectDualNumberOperator(ProjectOperator):
         super(ProjectDualNumberOperator, self).__init__(key, value, expr=expr)
         if isinstance(value, list) and len(value) == 2:
             self.value_type = [VALUE_TYPE_PLAIN, VALUE_TYPE_PLAIN]
+            self.value_comma = [False, False]
             for i, v in enumerate(value):
                 if Value.is_doc_ref_key(v):
                     self.value[i] = v[1:]
                     self.value_type[i] = VALUE_TYPE_REFKEY
+                    self.value_comma[i] = "." in self.value[i]
                 else:
                     if isinstance(v, dict):
                         prj = OperatorFactory.new_project(key, v, expr=True)
@@ -634,7 +641,7 @@ class ProjectDualNumberOperator(ProjectOperator):
     def eval(self, document):
         v1 = self.value[0]
         if self.value_type[0] == VALUE_TYPE_REFKEY:
-            if "." in v1:
+            if self.value_comma[0]:
                 v1 = document.get2(v1)
             else:
                 v1 = document.get(v1)
@@ -643,7 +650,7 @@ class ProjectDualNumberOperator(ProjectOperator):
 
         v2 = self.value[1]
         if self.value_type[1] == VALUE_TYPE_REFKEY:
-            if "." in v2:
+            if self.value_comma[1]:
                 v2 = document.get2(v2)
             else:
                 v2 = document.get(v2)
@@ -714,6 +721,7 @@ class ProjectConvertOperator(ProjectOperator):
         if Value.is_doc_ref_key(value):
             self.value = value[1:]
             self.value_type = VALUE_TYPE_REFKEY
+            self.value_comma = "." in self.value
         else:
             if isinstance(value, dict):
                 prj = OperatorFactory.new_project(key, value, expr=True)
@@ -728,7 +736,7 @@ class ProjectConvertOperator(ProjectOperator):
     def eval (self, document):
         v = self.value
         if self.value_type == VALUE_TYPE_REFKEY:
-            if "." in v:
+            if self.value_comma:
                 v = document.get2(v)
             else:
                 v = document.get(v)
@@ -784,6 +792,7 @@ class ProjectUseOperator(ProjectOperator):
             if Value.is_doc_ref_key(value[0]):
                 self.value[0] = value[0][1:]
                 self.value_type = VALUE_TYPE_REFKEY
+                self.value_comma = "." in self.value[0]
             else:
                 if isinstance(value[0], dict):
                     self.value[0] = OperatorFactory.new_project(key, value[0], expr=True)
@@ -804,7 +813,7 @@ class ProjectUseOperator(ProjectOperator):
     def eval(self, document):
         v = self.value[0]
         if self.value_type == VALUE_TYPE_REFKEY:
-            if "." in v:
+            if self.value_comma:
                 v = document.get2(v)
             else:
                 v = document.get(v)
@@ -866,6 +875,7 @@ class ProjectSubstrOperator(ProjectOperator):
             if Value.is_doc_ref_key(value[0]):
                 self.value[0] = value[0][1:]
                 self.value_type = VALUE_TYPE_REFKEY
+                self.value_comma = "." in self.value[0]
             else:
                 if isinstance(value[0], dict):
                     prj = OperatorFactory.new_project(key, value[0], expr=True)
@@ -890,7 +900,7 @@ class ProjectSubstrOperator(ProjectOperator):
     def eval(self, document):
         v = self.value[0]
         if self.value_type == VALUE_TYPE_REFKEY:
-            if "." in v:
+            if self.value_comma:
                 v = document.get2(v)
             else:
                 v = document.get(v)
@@ -916,6 +926,7 @@ class ProjectSubstringOperator(ProjectOperator):
             if Value.is_doc_ref_key(value[0]):
                 self.value[0] = value[0][1:]
                 self.value_type = VALUE_TYPE_REFKEY
+                self.value_comma = "." in self.value[0]
             else:
                 if isinstance(value[0], dict):
                     prj = OperatorFactory.new_project(key, value[0], expr=True)
@@ -943,7 +954,7 @@ class ProjectSubstringOperator(ProjectOperator):
     def eval(self, document):
         v = self.value[0]
         if self.value_type == VALUE_TYPE_REFKEY:
-            if "." in v:
+            if self.value_comma:
                 v = document.get2(v)
             else:
                 v = document.get(v)
@@ -966,6 +977,7 @@ class ProjectDateOperator(ProjectOperator):
         if Value.is_doc_ref_key(value):
             self.value = value[1:]
             self.value_type = VALUE_TYPE_REFKEY
+            self.value_comma = "." in self.value
         else:
             if isinstance(value, dict):
                 prj = OperatorFactory.new_project(key, value, expr=True)
@@ -984,7 +996,7 @@ class ProjectDateOperator(ProjectOperator):
     def _make_date(self, document):
         v = self.value
         if self.value_type == VALUE_TYPE_REFKEY:
-            if "." in v:
+            if self.value_comma:
                 v = document.get2(v)
             else:
                 v = document.get(v)
@@ -1111,15 +1123,12 @@ class ProjectCombineOperator(ProjectOperator):
         self.combined_ops = combined_ops
 
     def eval(self, document):
-        pv = Document()
+        pv = {}
         for k, combine_op in self.combined_ops.iteritems():
             v = combine_op.project(document)
             if v != undefined:
-                if "." in k:
-                    pv.set2(k, v)
-                else:
-                    pv[k] = v
-        return dict(pv)
+                pv[k] = v
+        return pv
 
 
 class GroupOperator(Operator):
@@ -1148,6 +1157,7 @@ class GroupUnaryOperator(GroupOperator):
         if Value.is_doc_ref_key(value):
             self.value = value[1:]
             self.value_type = VALUE_TYPE_REFKEY
+            self.value_comma = "." in self.value
         else:
             if isinstance(value, dict):
                 self.value = OperatorFactory.new_project(key, value, expr=True)
@@ -1157,7 +1167,7 @@ class GroupUnaryOperator(GroupOperator):
 
     def get_value(self, document, default=None):
         if self.value_type == VALUE_TYPE_REFKEY:
-            if "." in self.value:
+            if self.value_comma:
                 return document.get2(self.value, default)
             else:
                 return document.get(self.value, default)
@@ -1307,15 +1317,17 @@ class GroupCombineOperator(GroupOperator):
         super(GroupCombineOperator, self).__init__(key, value)
         combined_ops = {}
         for k, v in value.iteritems():
-            combined_ops[k] = OperatorFactory.new_group(k, v)
+            if "." in k:
+                combined_ops[k] = (True, OperatorFactory.new_group(k, v))
+            else:
+                combined_ops[k] = (False, OperatorFactory.new_group(k, v))
         self.combined_ops = combined_ops
 
     def eval(self, document, acc_val):
         if acc_val == undefined:
             acc_val = Document()
         pv = Document()
-        for k, combine_op in self.combined_ops.iteritems():
-            comma = "." in k
+        for k, (comma, combine_op) in self.combined_ops.iteritems():
             if comma:
                 v = combine_op.group(document, acc_val.get2(k, undefined))
             else:

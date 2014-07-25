@@ -107,7 +107,10 @@ class ProjectCommand(Command):
             if v == 0:
                 excludes.add(k)
             else:
-                operators[k] = OperatorFactory.new_project(k, v)
+                if "." in k:
+                    operators[k] = (True, OperatorFactory.new_project(k, v))
+                else:
+                    operators[k] = (False, OperatorFactory.new_project(k, v))
         if operators and excludes:
             raise self.make_error("$project cannot mix use exclusion and inclusion")
         self.operators = operators
@@ -116,10 +119,10 @@ class ProjectCommand(Command):
     def feed(self, document):
         if self.operators:
             new_doc = Document()
-            for k, op in self.operators.iteritems():
+            for k, (comma, op) in self.operators.iteritems():
                 v = op.project(document)
                 if v != undefined:
-                    if "." in k:
+                    if comma:
                         new_doc.set2(k, v)
                     else:
                         new_doc[k] = v
@@ -148,14 +151,18 @@ class GroupCommand(Command):
         for k, v in value.iteritems():
             if k == "_id":
                 continue
-            operators[k] = OperatorFactory.new_group(k, v)
+            if "." in k:
+                operators[k] = (True, OperatorFactory.new_group(k, v))
+            else:
+                operators[k] = (False, OperatorFactory.new_group(k, v))
         self.operators = operators
-        self.should_normalize = any(hasattr(op, "result") for op in self.operators.itervalues())
+        self.should_normalize = any(hasattr(op, "result") for _, op in self.operators.itervalues())
 
         id_v = value["_id"]
         if Value.is_doc_ref_key(id_v):
             self._id = id_v[1:]
             self._id_type = VALUE_TYPE_REFKEY
+            self._id_comma = "." in self._id
         elif isinstance(id_v, dict):
             self._id = OperatorFactory.new_project("_id", id_v)
             self._id_type = VALUE_TYPE_OPERATOR
@@ -172,8 +179,7 @@ class GroupCommand(Command):
             acc_doc = self._id_docs[hid]
         else:
             acc_doc = self._id_docs[hid] = Document({"_id": ids})
-        for k, op in self.operators.iteritems():
-            comma = "." in k
+        for k, (comma, op) in self.operators.iteritems():
             if comma:
                 v = op.group(document, acc_doc.get2(k, undefined))
             else:
@@ -201,9 +207,8 @@ class GroupCommand(Command):
 
     def normalize(self):
         for acc_doc in self._id_docs.itervalues():
-            for k, op in self.operators.iteritems():
+            for k, (comma, op) in self.operators.iteritems():
                 if hasattr(op, "result"):
-                    comma = "." in k
                     if comma:
                         v = op.result(acc_doc.get2(k))
                         acc_doc.set2(k, v)
@@ -213,7 +218,7 @@ class GroupCommand(Command):
 
     def gen_id(self, document):
         if self._id_type == VALUE_TYPE_REFKEY:
-            if "." in self._id:
+            if self._id_comma:
                 return document.get2(self._id)
             else:
                 return document.get(self._id)
@@ -337,10 +342,10 @@ class UnwindCommand(Command):
         if not Value.is_doc_ref_key(value):
             raise self.make_error("$unwind field path references must be prefixed with a '$'")
         self.value = value[1:]
+        self.value_comma = "." in self.value
 
     def feed(self, document):
-        comma = "." in self.value
-        if comma:
+        if self.value_comma:
             vals = document.get2(self.value, undefined)
         else:
             vals = document.get(self.value, undefined)
@@ -350,7 +355,7 @@ class UnwindCommand(Command):
 
             for v in vals:
                 new_doc = Document(document)
-                if comma:
+                if self.value_comma:
                     new_doc.set2(self.value, v)
                 else:
                     new_doc[self.value] = v
