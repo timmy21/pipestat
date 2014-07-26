@@ -101,39 +101,44 @@ class ProjectCommand(Command):
             raise self.make_error("$project specification must be an object")
         if not value:
             raise self.make_error("$projec requires at least one output field")
-        operators = {}
+        operators = []
         excludes = set()
         for k, v in value.iteritems():
             if v == 0:
                 excludes.add(k)
             else:
                 if "." in k:
-                    operators[k] = (True, OperatorFactory.new_project(k, v))
+                    operators.append((k, True, OperatorFactory.new_project(k, v)))
                 else:
-                    operators[k] = (False, OperatorFactory.new_project(k, v))
+                    operators.append((k, False, OperatorFactory.new_project(k, v)))
         if operators and excludes:
             raise self.make_error("$project cannot mix use exclusion and inclusion")
         self.operators = operators
         self.excludes = excludes
-
-    def feed(self, document):
         if self.operators:
-            new_doc = Document()
-            for k, (comma, op) in self.operators.iteritems():
-                v = op.project(document)
-                if v != undefined:
-                    if comma:
-                        new_doc.set2(k, v)
-                    else:
-                        new_doc[k] = v
+            self.feed = self.feed_operators
         else:
-            new_doc = Document()
-            for k, v in document.iteritems():
-                if k not in self.excludes:
-                    if "." in k:
-                        new_doc.set2(k, v)
-                    else:
-                        new_doc[k] = v
+            self.feed = self.feed_excludes
+
+    def feed_operators(self, document):
+        new_doc = Document()
+        for k, comma, op in self.operators:
+            v = op.project(document)
+            if v != undefined:
+                if comma:
+                    new_doc.set2(k, v)
+                else:
+                    new_doc[k] = v
+        super(ProjectCommand, self).feed(new_doc)
+
+    def feed_excludes(self, document):
+        new_doc = Document()
+        for k, v in document.iteritems():
+            if k not in self.excludes:
+                if "." in k:
+                    new_doc.set2(k, v)
+                else:
+                    new_doc[k] = v
         super(ProjectCommand, self).feed(new_doc)
 
 
@@ -147,16 +152,16 @@ class GroupCommand(Command):
             raise self.make_error("$group specification must be an object")
         elif "_id" not in value:
             raise self.make_error("$group specification must include an _id")
-        operators = {}
+        operators = []
         for k, v in value.iteritems():
             if k == "_id":
                 continue
             if "." in k:
-                operators[k] = (True, OperatorFactory.new_group(k, v))
+                operators.append((k, True, OperatorFactory.new_group(k, v)))
             else:
-                operators[k] = (False, OperatorFactory.new_group(k, v))
+                operators.append((k, False, OperatorFactory.new_group(k, v)))
         self.operators = operators
-        self.should_normalize = any(hasattr(op, "result") for _, op in self.operators.itervalues())
+        self.should_normalize = any(hasattr(op, "result") for _, _, op in self.operators)
 
         id_v = value["_id"]
         if Value.is_doc_ref_key(id_v):
@@ -178,17 +183,17 @@ class GroupCommand(Command):
         if hid in self._id_docs:
             acc_doc = self._id_docs[hid]
         else:
-            acc_doc = self._id_docs[hid] = Document({"_id": ids})
-        for k, (comma, op) in self.operators.iteritems():
+            acc_doc = self._id_docs[hid] = Document(_id=ids)
+        for k, comma, op in self.operators:
             if comma:
                 v = op.group(document, acc_doc.get2(k, undefined))
-            else:
-                v = op.group(document, acc_doc.get(k, undefined))
-            if v == undefined:
-                v = None
-            if comma:
+                if v == undefined:
+                    v = None
                 acc_doc.set2(k, v)
             else:
+                v = op.group(document, acc_doc.get(k, undefined))
+                if v == undefined:
+                    v = None
                 acc_doc[k] = v
 
     def result(self):
@@ -207,7 +212,7 @@ class GroupCommand(Command):
 
     def normalize(self):
         for acc_doc in self._id_docs.itervalues():
-            for k, (comma, op) in self.operators.iteritems():
+            for k, comma, op in self.operators:
                 if hasattr(op, "result"):
                     if comma:
                         v = op.result(acc_doc.get2(k))

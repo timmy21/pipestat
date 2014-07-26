@@ -110,7 +110,7 @@ class MatchOperator(Operator):
         except OperatorError:
             raise
         except Exception, e:
-            raise self.make_error("%s runtime error: %s" % (self.name, str(e)))
+            raise self.make_error("%s runtime error: %s" % (self.name, e.message))
 
     def eval(self, document):
         raise NotImplemented()
@@ -483,7 +483,7 @@ class ProjectOperator(Operator):
         except OperatorError:
             raise
         except Exception, e:
-            raise self.make_error("%s runtime error: %s" % (self.name, str(e)))
+            raise self.make_error("%s runtime error: %s" % (self.name, e.message))
 
     def eval(self, document):
         raise NotImplemented()
@@ -1115,16 +1115,16 @@ class ProjectCombineOperator(ProjectOperator):
 
     def __init__(self, key, value, expr=False):
         super(ProjectCombineOperator, self).__init__(key, value, expr=expr)
-        combined_ops = {}
+        combined_ops = []
         for k, v in value.iteritems():
             if "." in k:
                 raise CommandError("dotted field names are only allowed at the top level", self.command)
-            combined_ops[k] = OperatorFactory.new_project("%s.%s" %(key, k), v, expr=expr)
+            combined_ops.append((k, OperatorFactory.new_project("%s.%s" %(key, k), v, expr=expr)))
         self.combined_ops = combined_ops
 
     def eval(self, document):
         pv = {}
-        for k, combine_op in self.combined_ops.iteritems():
+        for k, combine_op in self.combined_ops:
             v = combine_op.project(document)
             if v != undefined:
                 pv[k] = v
@@ -1144,7 +1144,7 @@ class GroupOperator(Operator):
         try:
             return self.eval(document, acc_val)
         except Exception, e:
-            raise self.make_error("%s runtime error: %s" % (self.name, str(e)))
+            raise self.make_error("%s runtime error: %s" % (self.name, e.message))
 
     def eval(self, document, acc_val):
         raise NotImplementedError()
@@ -1315,28 +1315,28 @@ class GroupCombineOperator(GroupOperator):
 
     def __init__(self, key, value):
         super(GroupCombineOperator, self).__init__(key, value)
-        combined_ops = {}
+        combined_ops = []
         for k, v in value.iteritems():
             if "." in k:
-                combined_ops[k] = (True, OperatorFactory.new_group(k, v))
+                combined_ops.append((k, True, OperatorFactory.new_group(k, v)))
             else:
-                combined_ops[k] = (False, OperatorFactory.new_group(k, v))
+                combined_ops.append((k, False, OperatorFactory.new_group(k, v)))
         self.combined_ops = combined_ops
 
     def eval(self, document, acc_val):
         if acc_val == undefined:
             acc_val = Document()
         pv = Document()
-        for k, (comma, combine_op) in self.combined_ops.iteritems():
+        for k, comma, combine_op in self.combined_ops:
             if comma:
                 v = combine_op.group(document, acc_val.get2(k, undefined))
-            else:
-                v = combine_op.group(document, acc_val.get(k, undefined))
-            if v == undefined:
-                v = None
-            if comma:
+                if v == undefined:
+                    v = None
                 pv.set2(k, v)
             else:
+                v = combine_op.group(document, acc_val.get(k, undefined))
+                if v == undefined:
+                    v = None
                 pv[k] = v
         return pv
 
