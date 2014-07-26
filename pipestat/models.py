@@ -63,7 +63,6 @@ class Document(dict):
             doc = doc[part]
         doc[parts[-1]] = value
 
-
     def setdefault2(self, key, value):
         val = self.get2(key, undefined)
         if val == undefined:

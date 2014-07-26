@@ -1315,29 +1315,30 @@ class GroupCombineOperator(GroupOperator):
 
     def __init__(self, key, value):
         super(GroupCombineOperator, self).__init__(key, value)
-        combined_ops = []
+        plain_combined_ops = []
+        comma_combined_ops = []
         for k, v in value.iteritems():
             if "." in k:
-                combined_ops.append((k, True, OperatorFactory.new_group(k, v)))
+                comma_combined_ops.append((k, OperatorFactory.new_group(k, v)))
             else:
-                combined_ops.append((k, False, OperatorFactory.new_group(k, v)))
-        self.combined_ops = combined_ops
+                plain_combined_ops.append((k, OperatorFactory.new_group(k, v)))
+        self.plain_combined_ops = plain_combined_ops
+        self.comma_combined_ops = comma_combined_ops
 
     def eval(self, document, acc_val):
         if acc_val == undefined:
             acc_val = Document()
         pv = Document()
-        for k, comma, combine_op in self.combined_ops:
-            if comma:
-                v = combine_op.group(document, acc_val.get2(k, undefined))
-                if v == undefined:
-                    v = None
-                pv.set2(k, v)
-            else:
-                v = combine_op.group(document, acc_val.get(k, undefined))
-                if v == undefined:
-                    v = None
-                pv[k] = v
+        for k, combine_op in self.plain_combined_ops:
+            v = combine_op.group(document, acc_val.get(k, undefined))
+            if v == undefined:
+                v = None
+            pv[k] = v
+        for k, combine_op in self.comma_combined_ops:
+            v = combine_op.group(document, acc_val.get2(k, undefined))
+            if v == undefined:
+                v = None
+            pv.set2(k, v)
         return pv
 
     def result(self, acc_val):
