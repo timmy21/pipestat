@@ -171,7 +171,6 @@ class GroupCommand(Command):
                 plain_operators.append((k, OperatorFactory.new_group(k, v)))
         self.plain_operators = plain_operators
         self.comma_operators = comma_operators
-        self.should_normalize = any(hasattr(op, "result") for _, op in itertools.chain(self.plain_operators, self.comma_operators))
 
         id_v = value["_id"]
         if Value.is_doc_ref_key(id_v):
@@ -187,28 +186,29 @@ class GroupCommand(Command):
 
         self._id_docs = {}
 
+    def init_doc(self, ids):
+        doc = Document(_id=ids)
+        for k, op in self.plain_operators:
+            doc[k] = op.init_val()
+        for k, op in self.comma_operators:
+            doc.set2(k, op.init_val())
+        return doc
+
     def feed(self, document):
         ids = self.gen_id(document)
         hid = self.hash_id(ids)
         if hid in self._id_docs:
             acc_doc = self._id_docs[hid]
         else:
-            acc_doc = self._id_docs[hid] = Document(_id=ids)
+            acc_doc = self._id_docs[hid] = self.init_doc(ids)
         for k, op in self.plain_operators:
-            v = op.group(document, acc_doc.get(k, undefined))
-            if v == undefined:
-                v = None
-            acc_doc[k] = v
+            acc_doc[k] = op.group(document, acc_doc[k])
 
         for k, op in self.comma_operators:
-            v = op.group(document, acc_doc.get2(k, undefined))
-            if v == undefined:
-                v = None
-            acc_doc.set2(k, v)
+            acc_doc.set2(k, op.group(document, acc_doc.get2(k)))
 
     def result(self):
-        if self.should_normalize:
-            self.normalize()
+        self.normalize()
 
         if self.next:
             try:
@@ -223,14 +223,10 @@ class GroupCommand(Command):
     def normalize(self):
         for acc_doc in self._id_docs.itervalues():
             for k, op in self.plain_operators:
-                if hasattr(op, "result"):
-                    v = op.result(acc_doc.get(k))
-                    acc_doc[k] = v
+                acc_doc[k] = op.result(acc_doc.get(k))
 
             for k, op in self.comma_operators:
-                if hasattr(op, "result"):
-                    v = op.result(acc_doc.get2(k))
-                    acc_doc.set2(k, v)
+                acc_doc.set2(k, op.result(acc_doc.get2(k)))
 
     def gen_id(self, document):
         if self._id_type == VALUE_TYPE_REFKEY:

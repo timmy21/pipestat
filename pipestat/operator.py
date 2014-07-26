@@ -1140,6 +1140,14 @@ class GroupOperator(Operator):
         self.value = value
         self.value_type = VALUE_TYPE_PLAIN
 
+    def init_val(self):
+        return undefined
+
+    def result(self, acc_val):
+        if acc_val == undefined:
+            return None
+        return acc_val
+
     def group(self, document, acc_val):
         try:
             return self.eval(document, acc_val)
@@ -1184,10 +1192,14 @@ class GroupSumOperator(GroupUnaryOperator):
 
     name = "$sum"
 
+    def init_val(self):
+        return 0
+
+    def result(self, acc_val):
+        return acc_val
+
     def eval(self, document, acc_val):
         value = self.get_value(document, default=0)
-        if acc_val == undefined:
-            acc_val = 0
         try:
             return acc_val + value
         except Exception:
@@ -1244,25 +1256,30 @@ class GroupAddToSetOperator(GroupUnaryOperator):
 
     name = "$addToSet"
 
+    def init_val(self):
+        return set()
+
+    def result(self, acc_val):
+        return list(acc_val)
+
     def eval(self, document, acc_val):
-        if acc_val == undefined:
-            acc_val = set()
         value = self.get_value(document, undefined)
         if value != undefined:
             acc_val.add(value)
         return acc_val
-
-    def result(self, acc_val):
-        return list(acc_val)
 
 
 class GroupPushOperator(GroupUnaryOperator):
 
     name = "$push"
 
+    def init_val(self):
+        return []
+
+    def result(self, acc_val):
+        return acc_val
+
     def eval(self, document, acc_val):
-        if acc_val == undefined:
-            acc_val = []
         value = self.get_value(document, undefined)
         if value != undefined:
             acc_val.append(value)
@@ -1273,25 +1290,30 @@ class GroupConcatToSetOperator(GroupUnaryOperator):
 
     name = "$concatToSet"
 
+    def init_val(self):
+        return set()
+
+    def result(self, acc_val):
+        return list(acc_val)
+
     def eval(self, document, acc_val):
-        if acc_val == undefined:
-            acc_val = set()
         value = self.get_value(document, undefined)
         if value != undefined:
             acc_val = acc_val | set(list(value))
         return acc_val
-
-    def result(self, acc_val):
-        return list(acc_val)
 
 
 class GroupConcatToListOperator(GroupUnaryOperator):
 
     name = "$concatToList"
 
+    def init_val(self):
+        return []
+
+    def result(self, acc_val):
+        return acc_val
+
     def eval(self, document, acc_val):
-        if acc_val == undefined:
-            acc_val = []
         value = self.get_value(document, undefined)
         if value != undefined:
             acc_val = acc_val + list(value)
@@ -1325,21 +1347,24 @@ class GroupCombineOperator(GroupOperator):
         self.plain_combined_ops = plain_combined_ops
         self.comma_combined_ops = comma_combined_ops
 
-    def eval(self, document, acc_val):
-        if acc_val == undefined:
-            acc_val = Document()
-        pv = Document()
+    def init_val(self):
+        doc = Document()
         for k, combine_op in self.plain_combined_ops:
-            v = combine_op.group(document, acc_val.get(k, undefined))
-            if v == undefined:
-                v = None
-            pv[k] = v
+            doc[k] = combine_op.init_val()
         for k, combine_op in self.comma_combined_ops:
-            v = combine_op.group(document, acc_val.get2(k, undefined))
-            if v == undefined:
-                v = None
-            pv.set2(k, v)
-        return pv
+            doc.set2(k, combine_op.init_val())
+        return doc
 
     def result(self, acc_val):
+        for k, combine_op in self.plain_combined_ops:
+            acc_val[k] = combine_op.result(acc_val[k])
+        for k, combine_op in self.comma_combined_ops:
+            acc_val.set2(k, combine_op.result(acc_val.get2(k)))
         return dict(acc_val)
+
+    def eval(self, document, acc_val):
+        for k, combine_op in self.plain_combined_ops:
+            acc_val[k] = combine_op.group(document, acc_val[k])
+        for k, combine_op in self.comma_combined_ops:
+            acc_val.set2(k, combine_op.group(document, acc_val.get2(k)))
+        return acc_val

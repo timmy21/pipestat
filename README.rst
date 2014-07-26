@@ -368,8 +368,6 @@ it's second paramter is accumulate result, initial value is customed **undefined
     >>> from pipestat import pipestat, undefined
 
     >>> def filter_concat(document, acc_val):
-    ...     if acc_val == undefined:
-    ...         acc_val = []
     ...     if document["action"] != "refresh":
     ...         acc_val.append(document["action"])
     ...     return acc_val
