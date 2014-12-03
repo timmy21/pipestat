@@ -30,14 +30,10 @@ class Document(dict):
     so juge if comma in key before call function, that is ugly but faster.
 
     >>> doc = Document({'flag': {'fin': 1}})
-    >>> key = 'flag.fin'
-    >>> if '.' in key:
-    ...     val = doc.get2(key)
-    ... else:
-    ...     val = doc.get(key)
+    >>> val = doc.get('flag.fin')
     """
 
-    def get2(self, key, default=None):
+    def get(self, key, default=None):
         try:
             parts = key.split(".")
             pcnt = len(parts)
@@ -47,14 +43,14 @@ class Document(dict):
                 if i != pcnt - 1 and isinstance(doc, ArrayTypes):
                     remain_parts = ".".join(parts[i+1:])
                     if remain_parts:
-                        doc = (Document(x).get2(remain_parts, undefined) for x in doc)
+                        doc = (Document(x).get(remain_parts, undefined) for x in doc)
                         doc = [x for x in doc if x != undefined]
                     break
             return doc
         except Exception:
             return default
 
-    def set2(self, key, value):
+    def set(self, key, value):
         parts = key.split(".")
         doc = self
         for part in parts[:-1]:
@@ -63,20 +59,20 @@ class Document(dict):
             doc = doc[part]
         doc[parts[-1]] = value
 
-    def setdefault2(self, key, value):
-        val = self.get2(key, undefined)
+    def setdefault(self, key, value):
+        val = self.get(key, undefined)
         if val == undefined:
-            self.set2(key, value)
+            self.set(key, value)
             return value
         else:
             return val
 
-    def has2(self, key):
-        val = self.get2(key, undefined)
+    def has(self, key):
+        val = self.get(key, undefined)
         return val != undefined
 
-    def pop2(self, key, **kwargs):
-        val = self.get2(key, undefined)
+    def pop(self, key, **kwargs):
+        val = self.get(key, undefined)
         if val == undefined:
             if "default" in kwargs:
                 return kwargs["default"]
@@ -85,7 +81,7 @@ class Document(dict):
         else:
             return val
 
-    def delete2(self, key):
+    def delete(self, key):
         try:
             parts = key.split(".")
             doc = self

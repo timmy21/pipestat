@@ -5,10 +5,9 @@ try:
 except ImportError:
     import json
 import collections
-import itertools
 from pipestat.bsort import insort
 from pipestat.errors import PipelineError, CommandError, LimitCompleted
-from pipestat.operator import OperatorFactory, ProjectOperator
+from pipestat.operator import OperatorFactory
 from pipestat.models import Document, undefined
 from pipestat.utils import Value, isNumberType
 from pipestat.constants import ASCENDING, DESCENDING, ArrayTypes
@@ -102,22 +101,17 @@ class ProjectCommand(Command):
             raise self.make_error("$project specification must be an object")
         if not value:
             raise self.make_error("$projec requires at least one output field")
-        plain_operators = []
-        comma_operators = []
+        operators = []
         excludes = set()
         for k, v in value.iteritems():
             if v == 0:
                 excludes.add(k)
             else:
-                if "." in k:
-                    comma_operators.append((k, OperatorFactory.new_project(k, v)))
-                else:
-                    plain_operators.append((k, OperatorFactory.new_project(k, v)))
-        if (plain_operators or comma_operators) and excludes:
+                operators.append((k, OperatorFactory.new_project(k, v)))
+        if operators and excludes:
             raise self.make_error("$project cannot mix use exclusion and inclusion")
 
-        self.plain_operators = plain_operators
-        self.comma_operators = comma_operators
+        self.operators = operators
         self.excludes = excludes
 
         if self.excludes:
@@ -127,15 +121,10 @@ class ProjectCommand(Command):
 
     def feed_operators(self, document):
         new_doc = Document()
-        for k, op in self.plain_operators:
+        for k, op in self.operators:
             v = op.project(document)
             if v != undefined:
-                new_doc[k] = v
-
-        for k, op in self.comma_operators:
-            v = op.project(document)
-            if v != undefined:
-                new_doc.set2(k, v)
+                new_doc.set(k, v)
 
         super(ProjectCommand, self).feed(new_doc)
 
@@ -143,10 +132,7 @@ class ProjectCommand(Command):
         new_doc = Document()
         for k, v in document.iteritems():
             if k not in self.excludes:
-                if "." in k:
-                    new_doc.set2(k, v)
-                else:
-                    new_doc[k] = v
+                new_doc.set(k, v)
         super(ProjectCommand, self).feed(new_doc)
 
 
@@ -160,23 +146,17 @@ class GroupCommand(Command):
             raise self.make_error("$group specification must be an object")
         elif "_id" not in value:
             raise self.make_error("$group specification must include an _id")
-        plain_operators = []
-        comma_operators = []
+        operators = []
         for k, v in value.iteritems():
             if k == "_id":
                 continue
-            if "." in k:
-                comma_operators.append((k, OperatorFactory.new_group(k, v)))
-            else:
-                plain_operators.append((k, OperatorFactory.new_group(k, v)))
-        self.plain_operators = plain_operators
-        self.comma_operators = comma_operators
+            operators.append((k, OperatorFactory.new_group(k, v)))
+        self.operators = operators
 
         id_v = value["_id"]
         if Value.is_doc_ref_key(id_v):
             self._id = id_v[1:]
             self._id_type = VALUE_TYPE_REFKEY
-            self._id_comma = "." in self._id
         elif isinstance(id_v, dict):
             self._id = OperatorFactory.new_project("_id", id_v)
             self._id_type = VALUE_TYPE_OPERATOR
@@ -188,10 +168,8 @@ class GroupCommand(Command):
 
     def init_doc(self, ids):
         doc = Document(_id=ids)
-        for k, op in self.plain_operators:
-            doc[k] = op.init_val()
-        for k, op in self.comma_operators:
-            doc.set2(k, op.init_val())
+        for k, op in self.operators:
+            doc.set(k, op.init_val())
         return doc
 
     def feed(self, document):
@@ -201,11 +179,9 @@ class GroupCommand(Command):
             acc_doc = self._id_docs[hid]
         else:
             acc_doc = self._id_docs[hid] = self.init_doc(ids)
-        for k, op in self.plain_operators:
-            acc_doc[k] = op.group(document, acc_doc[k])
 
-        for k, op in self.comma_operators:
-            acc_doc.set2(k, op.group(document, acc_doc.get2(k)))
+        for k, op in self.operators:
+            acc_doc.set(k, op.group(document, acc_doc.get(k)))
 
     def result(self):
         self.normalize()
@@ -222,18 +198,12 @@ class GroupCommand(Command):
 
     def normalize(self):
         for acc_doc in self._id_docs.itervalues():
-            for k, op in self.plain_operators:
-                acc_doc[k] = op.result(acc_doc.get(k))
-
-            for k, op in self.comma_operators:
-                acc_doc.set2(k, op.result(acc_doc.get2(k)))
+            for k, op in self.operators:
+                acc_doc.set(k, op.result(acc_doc.get(k)))
 
     def gen_id(self, document):
         if self._id_type == VALUE_TYPE_REFKEY:
-            if self._id_comma:
-                return document.get2(self._id)
-            else:
-                return document.get(self._id)
+            return document.get(self._id)
         elif self._id_type == VALUE_TYPE_OPERATOR:
             return self._id.project(document)
         else:
@@ -278,8 +248,8 @@ class SortCommand(Command):
     def cmp_func(self, doc1, doc2):
         for k, direction in self.value:
             if "." in k:
-                v1 = doc1.get2(k)
-                v2 = doc2.get2(k)
+                v1 = doc1.get(k)
+                v2 = doc2.get(k)
             else:
                 v1 = doc1.get(k)
                 v2 = doc2.get(k)
@@ -354,21 +324,14 @@ class UnwindCommand(Command):
         if not Value.is_doc_ref_key(value):
             raise self.make_error("$unwind field path references must be prefixed with a '$'")
         self.value = value[1:]
-        self.value_comma = "." in self.value
 
     def feed(self, document):
-        if self.value_comma:
-            vals = document.get2(self.value, undefined)
-        else:
-            vals = document.get(self.value, undefined)
+        vals = document.get(self.value, undefined)
         if vals != undefined:
             if not isinstance(vals, ArrayTypes):
                 raise self.make_error("$unwind value at end of field path must be an array")
 
             for v in vals:
                 new_doc = Document(document)
-                if self.value_comma:
-                    new_doc.set2(self.value, v)
-                else:
-                    new_doc[self.value] = v
+                new_doc.set(self.value, v)
                 super(UnwindCommand, self).feed(new_doc)

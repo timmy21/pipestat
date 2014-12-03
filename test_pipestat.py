@@ -21,7 +21,7 @@ class DocumentTest(unittest.TestCase):
                 {"ip": "192.168.198.2"}
             ],
         }
-        self.assertEqual(Document(doc).get2("ips.ip"), ["192.168.198.1", "192.168.198.2"])
+        self.assertEqual(Document(doc).get("ips.ip"), ["192.168.198.1", "192.168.198.2"])
 
         doc = {
             "address": [{
@@ -31,7 +31,7 @@ class DocumentTest(unittest.TestCase):
                 ],
             }]
         }
-        self.assertEqual(Document(doc).get2("address.ips.ip"), [["192.168.198.1", "192.168.198.2"]])
+        self.assertEqual(Document(doc).get("address.ips.ip"), [["192.168.198.1", "192.168.198.2"]])
 
 class MatchCommandTest(unittest.TestCase):
 
