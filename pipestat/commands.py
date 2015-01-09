@@ -81,14 +81,16 @@ class MatchCommand(Command):
         self.operators = operators
 
     def feed(self, document):
+        if self.match(document):
+            super(MatchCommand, self).feed(document)
+
+    def match(self, document):
         matched = True
         for op in self.operators:
             if not op.match(document):
                 matched = False
                 break
-
-        if matched:
-            super(MatchCommand, self).feed(document)
+        return matched
 
 
 class ProjectCommand(Command):
