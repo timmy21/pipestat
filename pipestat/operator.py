@@ -161,7 +161,7 @@ class MatchExistsOperator(MatchKeyOperator):
     def __init__(self, key, value):
         super(MatchExistsOperator, self).__init__(key, value)
         if not value in [0, 1, True, False]:
-            self.make_error("the $exists operator requires bool")
+            raise self.make_error("the $exists operator requires bool")
 
     def eval(self, document):
         doc_val = document.get(self.key, undefined)
@@ -201,19 +201,19 @@ class MatchModOperator(MatchKeyElemOperator):
     def __init__(self, key, value):
         super(MatchModOperator, self).__init__(key, value)
         if not isinstance(value, ArrayTypes):
-            self.make_error("the $mod operator requires array type")
+            raise self.make_error("the $mod operator requires array type")
 
         vcount = len(value)
         if vcount < 2:
-            self.make_error("BadValue malformed $mod, not enough elements")
+            raise self.make_error("BadValue malformed $mod, not enough elements")
         elif vcount > 2:
-            self.make_error("BadValue malformed $mod, too many elements")
+            raise self.make_error("BadValue malformed $mod, too many elements")
 
         if not all(map(isNumberType, value)):
-            self.make_error("BadValue malformed $mod, elem value should be number")
+            raise self.make_error("BadValue malformed $mod, elem value should be number")
         value = map(int, value)
         if value[0] == 0:
-            self.make_error("$mod can't be 0")
+            raise self.make_error("$mod can't be 0")
         self.value = value
 
     def _eval_val(self, doc_val, document):
@@ -429,7 +429,7 @@ class MatchNotOperator(MatchKeyOperator):
         if isinstance(value, dict):
             self.value = OperatorFactory.new_match(key, value)
         else:
-            self.make_error("invalid use of $not")
+            raise self.make_error("invalid use of $not")
 
     def eval(self, document):
         if self.value.match(document):

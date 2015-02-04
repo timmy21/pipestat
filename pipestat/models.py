@@ -71,15 +71,14 @@ class Document(dict):
         val = self.get(key, undefined)
         return val != undefined
 
-    def pop(self, key, **kwargs):
-        val = self.get(key, undefined)
-        if val == undefined:
-            if "default" in kwargs:
-                return kwargs["default"]
-            else:
-                raise KeyError(key)
+    #only support top level
+    def pop(self, key, *args, **kwargs):
+        if "default" in kwargs:
+            return dict.pop(self, key, kwargs["default"])
+        elif len(args):
+            return dict.pop(self, key, args[0])
         else:
-            return val
+            return dict.pop(self, key)
 
     def delete(self, key):
         try:
