@@ -347,6 +347,17 @@ class ProjectCommandTest(unittest.TestCase):
             Document({"ts": 1390669200.0}),
         ])
 
+    def test_cond(self):
+        cmd = ProjectCommand({
+            "state": {"$cond": [{"$gt": ["$elapse", 2]}, 1, 0]},
+        })
+        cmd.feed(Document({"elapse": 4}))
+        cmd.feed(Document({"elapse": 1}))
+        self.assertListEqual(cmd.result(), [
+            Document({"state": 1}),
+            Document({"state": 0}),
+        ])
+
     def test_add(self):
         cmd = ProjectCommand({
             "elapse": {"$add": ["$elapse", 10]},

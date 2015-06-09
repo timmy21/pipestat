@@ -585,6 +585,88 @@ class ProjectTimestampOperator(ProjectOperator):
             return time.mktime(time.strptime(v, self.value[1]))
 
 
+class ProjectCmpOperator(ProjectOperator):
+
+    def __init__(self, key, value, expr=False):
+        super(ProjectCmpOperator, self).__init__(key, value, expr=expr)
+        if isinstance(value, list) and len(value) == 2:
+            self.value_type = [VALUE_TYPE_PLAIN, VALUE_TYPE_PLAIN]
+            for i, v in enumerate(value):
+                if Value.is_doc_ref_key(v):
+                    self.value[i] = v[1:]
+                    self.value_type[i] = VALUE_TYPE_REFKEY
+                elif isinstance(v, dict):
+                    prj = OperatorFactory.new_project(key, v, expr=True)
+                    self.value[i] = prj
+                    self.value_type[i] = VALUE_TYPE_OPERATOR
+        else:
+            raise self.make_error("the %s operator requires an array of two elements" % self.name)
+
+    def eval(self, document):
+        v1 = self._get_val(document, self.value[0], self.value_type[0])
+        v2 = self._get_val(document, self.value[1], self.value_type[1])
+        return self.cmp(v1, v2)
+
+    def cmp(self, v1, v2):
+        raise NotImplementedError()
+
+    def _get_val(self, document, value, value_type):
+        if value_type == VALUE_TYPE_REFKEY:
+            return document.get(value)
+        elif value_type == VALUE_TYPE_OPERATOR:
+            return value.eval(document)
+        else:
+            return value
+
+
+class ProjectLTOperator(ProjectCmpOperator):
+
+    name = "$lt"
+
+    def cmp(self, v1, v2):
+        return v1 < v2
+
+
+class ProjectLTEOperator(ProjectCmpOperator):
+
+    name = "$lte"
+
+    def cmp(self, v1, v2):
+        return v1 <= v2
+
+
+class ProjectGTOperator(ProjectCmpOperator):
+
+    name = "$gt"
+
+    def cmp(self, v1, v2):
+        return v1 > v2
+
+
+class ProjectGTEOperator(ProjectCmpOperator):
+
+    name = "$gte"
+
+    def cmp(self, v1, v2):
+        return v1 >= v2
+
+
+class ProjectEqualOperator(ProjectCmpOperator):
+
+    name = "$eq"
+
+    def cmp(self, v1, v2):
+        return v1 == v2
+
+
+class ProjectNotEqualOperator(ProjectCmpOperator):
+
+    name = "$ne"
+
+    def cmp(self, v1, v2):
+        return v1 != v2
+
+
 class ProjectDualNumberOperator(ProjectOperator):
 
     def __init__(self, key, value, expr=False):
@@ -1054,6 +1136,53 @@ class ProjectCallOperator(ProjectOperator):
 
     def eval(self, document):
         return self.value(document)
+
+
+class ProjectCondOperator(ProjectOperator):
+
+    name = "$cond"
+    returnTypes = None
+
+    def __init__(self, key, value, expr=False):
+        super(ProjectCondOperator, self).__init__(key, value, expr=expr)
+        if isinstance(value, list) and len(value) == 3:
+            self.bool_op = OperatorFactory.new_project(key, self.value[0], expr=True)
+
+            if Value.is_doc_ref_key(self.value[1]):
+                self.value[1] = value[1:]
+                self.true_type = VALUE_TYPE_REFKEY
+            elif isinstance(self.value[1], dict):
+                self.value[1] = OperatorFactory.new_project(key, self.value[1], expr=True)
+                self.true_type = VALUE_TYPE_OPERATOR
+            else:
+                self.true_type = VALUE_TYPE_PLAIN
+
+            if Value.is_doc_ref_key(self.value[2]):
+                self.value[2] = value[1:]
+                self.false_type = VALUE_TYPE_REFKEY
+            elif isinstance(self.value[2], dict):
+                self.value[2] = OperatorFactory.new_project(key, self.value[2], expr=True)
+                self.false_type = VALUE_TYPE_OPERATOR
+            else:
+                self.false_type = VALUE_TYPE_PLAIN
+        else:
+            raise self.make_error("the %cond operator requires an array of two elements")
+
+    def eval(self, document):
+        if self.bool_op.project(document):
+            if self.true_type == VALUE_TYPE_REFKEY:
+                return document.get(self.value[1])
+            elif self.true_type == VALUE_TYPE_OPERATOR:
+                return self.value[1].eval(document)
+            else:
+                return self.value[1]
+        else:
+            if self.false_type == VALUE_TYPE_REFKEY:
+                return document.get(self.value[2])
+            elif self.false_type == VALUE_TYPE_OPERATOR:
+                return self.value[2].eval(document)
+            else:
+                return self.value[2]
 
 
 class ProjectCombineOperator(ProjectOperator):
