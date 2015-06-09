@@ -896,16 +896,6 @@ class ErrorsTest(unittest.TestCase):
 
     def test_group(self):
         dataset = []
-        # $expressions with inclusion field
-        with self.assertRaises(OperatorError):
-            pipestat(dataset, [
-                {
-                    "$group": {
-                        "_id": None,
-                        "elapse": {"$sum": {"elapse": 1}}
-                    }
-                }
-            ])
 
         # $group operator only support single parameter
         with self.assertRaises(OperatorError):

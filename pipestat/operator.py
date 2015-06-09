@@ -47,19 +47,19 @@ class OperatorFactory(object):
                 return MatchCombineOperator(key, value)
 
     @staticmethod
-    def new_project(key, value, expr=False):
+    def new_project(key, value):
         if not isinstance(value, dict):
-            return ProjectValueOperator(key, value, expr=expr)
+            return ProjectValueOperator(key, value)
         else:
             if len(value) == 1:
                 name = value.keys()[0]
                 project_operators = _operators.get("$project", {})
                 if Value.is_operator(name):
                     if name in project_operators:
-                        return project_operators[name](key, value[name], expr=expr)
+                        return project_operators[name](key, value[name])
                     else:
                         raise CommandError("unknow $project operator '%s'" % name, "$project")
-            return ProjectCombineOperator(key, value, expr=expr)
+            return ProjectCombineOperator(key, value)
 
     @staticmethod
     def new_group(key, value):
@@ -458,10 +458,9 @@ class ProjectOperator(Operator):
 
     command = "$project"
 
-    def __init__(self, key, value, expr=False):
+    def __init__(self, key, value):
         self.key = key
         self.value = value
-        self.expr = expr
         self.value_type = VALUE_TYPE_PLAIN
 
     def project(self, document):
@@ -481,20 +480,23 @@ class ProjectValueOperator(ProjectOperator):
     name = "$value"
     returnTypes = None
 
-    def __init__(self, key, value, expr=False):
-        super(ProjectValueOperator, self).__init__(key, value, expr=expr)
+    def __init__(self, key, value):
+        super(ProjectValueOperator, self).__init__(key, value)
         if Value.is_doc_ref_key(value):
             self.value = value[1:]
+            self.value_type = VALUE_TYPE_REFKEY
         elif value == 1:
             self.value = key
+            self.value_type = VALUE_TYPE_REFKEY
         else:
-            raise self.make_error("field path references must be prefixed with a '$'")
-
-        if self.expr and value == 1:
-            raise self.make_error("field inclusion is not allowed inside of $expressions")
+            self.value = value
+            self.value_type = VALUE_TYPE_PLAIN
 
     def eval(self, document):
-        return document.get(self.value, undefined)
+        if self.value_type == VALUE_TYPE_REFKEY:
+            return document.get(self.value, undefined)
+        else:
+            return self.value
 
 
 class ProjectExtractOperator(ProjectOperator):
@@ -502,15 +504,15 @@ class ProjectExtractOperator(ProjectOperator):
     name = "$extract"
     returnTypes = types.StringTypes
 
-    def __init__(self, key, value, expr=False):
-        super(ProjectExtractOperator, self).__init__(key, value, expr=expr)
+    def __init__(self, key, value):
+        super(ProjectExtractOperator, self).__init__(key, value)
         if isinstance(value, list) and len(value) == 2:
             if Value.is_doc_ref_key(value[0]):
                 self.value[0] = value[0][1:]
                 self.value_type = VALUE_TYPE_REFKEY
             else:
                 if isinstance(value[0], dict):
-                    prj = OperatorFactory.new_project(key, value[0], expr=True)
+                    prj = OperatorFactory.new_project(key, value[0])
                     if (not prj.returnTypes) or (set(prj.returnTypes) & set(types.StringTypes)):
                         self.value[0] = prj
                         self.value_type = VALUE_TYPE_OPERATOR
@@ -550,15 +552,15 @@ class ProjectTimestampOperator(ProjectOperator):
     name = "$timestamp"
     returnTypes = [types.IntType, types.LongType, types.FloatType]
 
-    def __init__(self, key, value, expr=False):
-        super(ProjectTimestampOperator, self).__init__(key, value, expr=expr)
+    def __init__(self, key, value):
+        super(ProjectTimestampOperator, self).__init__(key, value)
         if isinstance(value, list) and len(value) == 2:
             if Value.is_doc_ref_key(value[0]):
                 self.value[0] = value[0][1:]
                 self.value_type = VALUE_TYPE_REFKEY
             else:
                 if isinstance(value[0], dict):
-                    prj = OperatorFactory.new_project(key, value[0], expr=True)
+                    prj = OperatorFactory.new_project(key, value[0])
                     if (not prj.returnTypes) or (set(prj.returnTypes) & set(types.StringTypes)):
                         self.value[0] = prj
                         self.value_type = VALUE_TYPE_OPERATOR
@@ -587,8 +589,8 @@ class ProjectTimestampOperator(ProjectOperator):
 
 class ProjectCmpOperator(ProjectOperator):
 
-    def __init__(self, key, value, expr=False):
-        super(ProjectCmpOperator, self).__init__(key, value, expr=expr)
+    def __init__(self, key, value):
+        super(ProjectCmpOperator, self).__init__(key, value)
         if isinstance(value, list) and len(value) == 2:
             self.value_type = [VALUE_TYPE_PLAIN, VALUE_TYPE_PLAIN]
             for i, v in enumerate(value):
@@ -596,7 +598,7 @@ class ProjectCmpOperator(ProjectOperator):
                     self.value[i] = v[1:]
                     self.value_type[i] = VALUE_TYPE_REFKEY
                 elif isinstance(v, dict):
-                    prj = OperatorFactory.new_project(key, v, expr=True)
+                    prj = OperatorFactory.new_project(key, v)
                     self.value[i] = prj
                     self.value_type[i] = VALUE_TYPE_OPERATOR
         else:
@@ -669,8 +671,8 @@ class ProjectNotEqualOperator(ProjectCmpOperator):
 
 class ProjectDualNumberOperator(ProjectOperator):
 
-    def __init__(self, key, value, expr=False):
-        super(ProjectDualNumberOperator, self).__init__(key, value, expr=expr)
+    def __init__(self, key, value):
+        super(ProjectDualNumberOperator, self).__init__(key, value)
         if isinstance(value, list) and len(value) == 2:
             self.value_type = [VALUE_TYPE_PLAIN, VALUE_TYPE_PLAIN]
             for i, v in enumerate(value):
@@ -679,7 +681,7 @@ class ProjectDualNumberOperator(ProjectOperator):
                     self.value_type[i] = VALUE_TYPE_REFKEY
                 else:
                     if isinstance(v, dict):
-                        prj = OperatorFactory.new_project(key, v, expr=True)
+                        prj = OperatorFactory.new_project(key, v)
                         if (not prj.returnTypes) or (set(prj.returnTypes) & set(NumberTypes)):
                             self.value[i] = prj
                             self.value_type[i] = VALUE_TYPE_OPERATOR
@@ -765,14 +767,14 @@ class ProjectModOperator(ProjectDualNumberOperator):
 
 class ProjectConvertOperator(ProjectOperator):
 
-    def __init__(self, key, value, expr=False):
-        super(ProjectConvertOperator, self).__init__(key, value, expr=expr)
+    def __init__(self, key, value):
+        super(ProjectConvertOperator, self).__init__(key, value)
         if Value.is_doc_ref_key(value):
             self.value = value[1:]
             self.value_type = VALUE_TYPE_REFKEY
         else:
             if isinstance(value, dict):
-                prj = OperatorFactory.new_project(key, value, expr=True)
+                prj = OperatorFactory.new_project(key, value)
                 if (not prj.returnTypes) or (set(prj.returnTypes) & set(types.StringTypes)):
                     self.value = prj
                     self.value_type = VALUE_TYPE_OPERATOR
@@ -831,15 +833,15 @@ class ProjectUseOperator(ProjectOperator):
     name = "$use"
     returnTypes = None
 
-    def __init__(self, key, value, expr=False):
-        super(ProjectUseOperator, self).__init__(key, value, expr=expr)
+    def __init__(self, key, value):
+        super(ProjectUseOperator, self).__init__(key, value)
         if isinstance(value, list) and len(value) == 2 or len(value) == 3:
             if Value.is_doc_ref_key(value[0]):
                 self.value[0] = value[0][1:]
                 self.value_type = VALUE_TYPE_REFKEY
             else:
                 if isinstance(value[0], dict):
-                    self.value[0] = OperatorFactory.new_project(key, value[0], expr=True)
+                    self.value[0] = OperatorFactory.new_project(key, value[0])
                     self.value_type = VALUE_TYPE_OPERATOR
             if isinstance(self.value[1], basestring):
                 try:
@@ -872,12 +874,12 @@ class ProjectConcatOperator(ProjectOperator):
     name = "$concat"
     returnTypes = types.StringTypes
 
-    def __init__(self, key, value, expr=False):
-        super(ProjectConcatOperator, self).__init__(key, value, expr=expr)
+    def __init__(self, key, value):
+        super(ProjectConcatOperator, self).__init__(key, value)
         if isinstance(value, list) and len(value) > 2:
             for i, v in enumerate(value):
                 if isinstance(v, dict):
-                    prj = OperatorFactory.new_project(key, v, expr=True)
+                    prj = OperatorFactory.new_project(key, v)
                     if (not prj.returnTypes) or (set(prj.returnTypes) & set(types.StringTypes)):
                         self.value[i] = prj
                     else:
@@ -910,15 +912,15 @@ class ProjectSubstrOperator(ProjectOperator):
     name = "$substr"
     returnTypes = types.StringTypes
 
-    def __init__(self, key, value, expr=False):
-        super(ProjectSubstrOperator, self).__init__(key, value, expr=expr)
+    def __init__(self, key, value):
+        super(ProjectSubstrOperator, self).__init__(key, value)
         if isinstance(value, list) and len(value) == 3:
             if Value.is_doc_ref_key(value[0]):
                 self.value[0] = value[0][1:]
                 self.value_type = VALUE_TYPE_REFKEY
             else:
                 if isinstance(value[0], dict):
-                    prj = OperatorFactory.new_project(key, value[0], expr=True)
+                    prj = OperatorFactory.new_project(key, value[0])
                     if (not prj.returnTypes) or (set(prj.returnTypes) & set(types.StringTypes)):
                         self.value[0] = prj
                         self.value_type = VALUE_TYPE_OPERATOR
@@ -957,15 +959,15 @@ class ProjectSubstringOperator(ProjectOperator):
     name = "$substring"
     returnTypes = types.StringTypes
 
-    def __init__(self, key, value, expr=False):
-        super(ProjectSubstringOperator, self).__init__(key, value, expr=expr)
+    def __init__(self, key, value):
+        super(ProjectSubstringOperator, self).__init__(key, value)
         if isinstance(value, list) and (len(value) == 2 or len(value) == 3):
             if Value.is_doc_ref_key(value[0]):
                 self.value[0] = value[0][1:]
                 self.value_type = VALUE_TYPE_REFKEY
             else:
                 if isinstance(value[0], dict):
-                    prj = OperatorFactory.new_project(key, value[0], expr=True)
+                    prj = OperatorFactory.new_project(key, value[0])
                     if (not prj.returnTypes) or (set(prj.returnTypes) & set(types.StringTypes)):
                         self.value[0] = prj
                         self.value_type = VALUE_TYPE_OPERATOR
@@ -1005,14 +1007,14 @@ class ProjectSubstringOperator(ProjectOperator):
 
 class ProjectDateOperator(ProjectOperator):
 
-    def __init__(self, key, value, expr=False):
-        super(ProjectDateOperator, self).__init__(key, value, expr=expr)
+    def __init__(self, key, value):
+        super(ProjectDateOperator, self).__init__(key, value)
         if Value.is_doc_ref_key(value):
             self.value = value[1:]
             self.value_type = VALUE_TYPE_REFKEY
         else:
             if isinstance(value, dict):
-                prj = OperatorFactory.new_project(key, value, expr=True)
+                prj = OperatorFactory.new_project(key, value)
                 if (not prj.returnTypes) or (set(prj.returnTypes) & set(DateTypes)):
                     self.value = prj
                     self.value_type = VALUE_TYPE_OPERATOR
@@ -1129,8 +1131,8 @@ class ProjectCallOperator(ProjectOperator):
     name = "$call"
     returnTypes = None
 
-    def __init__(self, key, value, expr=False):
-        super(ProjectCallOperator, self).__init__(key, value, expr=expr)
+    def __init__(self, key, value):
+        super(ProjectCallOperator, self).__init__(key, value)
         if not callable(value):
             raise self.make_error("the $call operator requires callable")
 
@@ -1143,16 +1145,16 @@ class ProjectCondOperator(ProjectOperator):
     name = "$cond"
     returnTypes = None
 
-    def __init__(self, key, value, expr=False):
-        super(ProjectCondOperator, self).__init__(key, value, expr=expr)
+    def __init__(self, key, value):
+        super(ProjectCondOperator, self).__init__(key, value)
         if isinstance(value, list) and len(value) == 3:
-            self.bool_op = OperatorFactory.new_project(key, self.value[0], expr=True)
+            self.bool_op = OperatorFactory.new_project(key, self.value[0])
 
             if Value.is_doc_ref_key(self.value[1]):
                 self.value[1] = value[1:]
                 self.true_type = VALUE_TYPE_REFKEY
             elif isinstance(self.value[1], dict):
-                self.value[1] = OperatorFactory.new_project(key, self.value[1], expr=True)
+                self.value[1] = OperatorFactory.new_project(key, self.value[1])
                 self.true_type = VALUE_TYPE_OPERATOR
             else:
                 self.true_type = VALUE_TYPE_PLAIN
@@ -1161,7 +1163,7 @@ class ProjectCondOperator(ProjectOperator):
                 self.value[2] = value[1:]
                 self.false_type = VALUE_TYPE_REFKEY
             elif isinstance(self.value[2], dict):
-                self.value[2] = OperatorFactory.new_project(key, self.value[2], expr=True)
+                self.value[2] = OperatorFactory.new_project(key, self.value[2])
                 self.false_type = VALUE_TYPE_OPERATOR
             else:
                 self.false_type = VALUE_TYPE_PLAIN
@@ -1189,13 +1191,13 @@ class ProjectCombineOperator(ProjectOperator):
 
     returnTypes = [types.DictType]
 
-    def __init__(self, key, value, expr=False):
-        super(ProjectCombineOperator, self).__init__(key, value, expr=expr)
+    def __init__(self, key, value):
+        super(ProjectCombineOperator, self).__init__(key, value)
         combined_ops = []
         for k, v in value.iteritems():
             if "." in k:
                 raise CommandError("dotted field names are only allowed at the top level", self.command)
-            combined_ops.append((k, OperatorFactory.new_project("%s.%s" %(key, k), v, expr=expr)))
+            combined_ops.append((k, OperatorFactory.new_project("%s.%s" %(key, k), v)))
         self.combined_ops = combined_ops
 
     def eval(self, document):
@@ -1243,7 +1245,7 @@ class GroupUnaryOperator(GroupOperator):
             self.value_type = VALUE_TYPE_REFKEY
         else:
             if isinstance(value, dict):
-                self.value = OperatorFactory.new_project(key, value, expr=True)
+                self.value = OperatorFactory.new_project(key, value)
                 self.value_type = VALUE_TYPE_OPERATOR
             elif isinstance(value, ArrayTypes):
                 raise self.make_error("aggregating group operators are unary (%s)" % self.name)

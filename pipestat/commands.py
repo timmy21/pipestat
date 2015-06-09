@@ -108,8 +108,12 @@ class ProjectCommand(Command):
         for k, v in value.iteritems():
             if v == 0:
                 excludes.add(k)
-            else:
+            elif v == 1:
+                operators.append((k, OperatorFactory.new_project(k, "$"+k)))
+            elif Value.is_doc_ref_key(v) or isinstance(v, dict):
                 operators.append((k, OperatorFactory.new_project(k, v)))
+            else:
+                raise self.make_error("$project has invalid element value:%s" % v)
         if operators and excludes:
             raise self.make_error("$project cannot mix use exclusion and inclusion")
 
